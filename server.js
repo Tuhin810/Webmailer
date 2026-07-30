@@ -18,18 +18,20 @@ function sendJson(response, status, value) {
   response.end(JSON.stringify(value));
 }
 
+let inMemoryConfig = null;
+
 async function readConfig() {
   const configPath = path.join(ROOT, "config.json");
-  let config;
   try {
-    config = JSON.parse(await fs.readFile(configPath, "utf8"));
+    return JSON.parse(await fs.readFile(configPath, "utf8"));
   } catch (error) {
-    throw new Error("Create web-mailer/config.json by copying config.example.json.");
+    return inMemoryConfig || {
+      gmail: process.env.GMAIL_USER || "",
+      app_password: process.env.GMAIL_APP_PASSWORD || "",
+      dry_run: true,
+      delay_ms: 750
+    };
   }
-  if (!config.gmail || !config.app_password) {
-    throw new Error("Add gmail and app_password to web-mailer/config.json.");
-  }
-  return config;
 }
 
 function readBody(request) {
@@ -61,41 +63,34 @@ function text(value, field) {
   return value.trim();
 }
 
-function validateRecipients(recipients) {
-  if (!Array.isArray(recipients) || recipients.length === 0) {
-    throw new Error("Add at least one valid recipient.");
-  }
-  if (recipients.length > 500) throw new Error("Maximum 500 recipients per run.");
-  return recipients.map((person, index) => {
-    const email = typeof person?.email === "string" ? person.email.trim() : "";
-    const name = typeof person?.name === "string" ? person.name.trim() : "";
-    if (!/^\S+@\S+\.\S+$/.test(email)) throw new Error(`Recipient ${index + 1} has an invalid email.`);
-    return { email, name };
-  });
+function personalize(template, recipient) {
+  return template.replace(/\{(\w+)\}/g, (match, key) => recipient[key] ?? match);
 }
 
-function personalize(value, recipient) {
-  return value.replaceAll("{name}", recipient.name).replaceAll("{email}", recipient.email);
+function wait(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
-
-const wait = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds));
 
 async function handleSend(request, response) {
   const data = await readBody(request);
-  const recipients = validateRecipients(data.recipients);
   const subject = text(data.subject, "Subject");
   const message = text(data.message, "Message");
-  const config = await readConfig();
+  const recipients = data.recipients;
   const attachment = data.attachment;
-  if (attachment && (!attachment.name || !attachment.base64 || !attachment.mimeType)) {
-    throw new Error("Attachment could not be read.");
+
+  if (!Array.isArray(recipients) || recipients.length === 0) {
+    throw new Error("Add at least one recipient email address.");
   }
 
-  if (config.dry_run !== false) {
-    return sendJson(response, 200, {
-      dryRun: true,
-      message: `Dry run: ${recipients.length} email(s) validated. No email was sent.`,
-    });
+  const config = await readConfig();
+  if (!config.gmail || !config.app_password) {
+    throw new Error("Configure Gmail address and App Password first.");
+  }
+
+  if (data.dryRun || config.dry_run) {
+    await wait(400);
+    const results = recipients.map((r) => ({ email: r.email, status: "dry-run-success" }));
+    return sendJson(response, 200, { dryRun: true, results });
   }
 
   const transporter = nodemailer.createTransport({
@@ -155,10 +150,7 @@ async function handleGetConfig(request, response) {
 async function handleSaveConfig(request, response) {
   const data = await readBody(request);
   const configPath = path.join(ROOT, "config.json");
-  let currentConfig = {};
-  try {
-    currentConfig = JSON.parse(await fs.readFile(configPath, "utf8"));
-  } catch {}
+  let currentConfig = await readConfig();
 
   const gmail = typeof data.gmail === "string" ? data.gmail.trim() : currentConfig.gmail || "";
   let app_password = currentConfig.app_password || "";
@@ -172,16 +164,31 @@ async function handleSaveConfig(request, response) {
   if (!app_password) throw new Error("App Password is required.");
 
   const updated = { gmail, app_password, dry_run, delay_ms };
-  await fs.writeFile(configPath, JSON.stringify(updated, null, 2), "utf8");
+  inMemoryConfig = updated;
+  try {
+    await fs.writeFile(configPath, JSON.stringify(updated, null, 2), "utf8");
+  } catch (e) {
+    // Memory fallback for cloud hosting
+  }
   sendJson(response, 200, { success: true, message: "Configuration saved successfully.", gmail, dry_run, delay_ms });
 }
 
 http.createServer(async (request, response) => {
   try {
-    const parsedUrl = request.url.split("?")[0];
-    if (request.method === "GET" && parsedUrl === "/api/config") return await handleGetConfig(request, response);
-    if (request.method === "POST" && parsedUrl === "/api/config") return await handleSaveConfig(request, response);
-    if (request.method === "POST" && parsedUrl === "/api/send") return await handleSend(request, response);
+    const rawUrl = request.url.split("?")[0];
+    const parsedUrl = rawUrl.length > 1 && rawUrl.endsWith("/") ? rawUrl.slice(0, -1) : rawUrl;
+
+    if (parsedUrl === "/api/config") {
+      if (request.method === "GET") return await handleGetConfig(request, response);
+      if (request.method === "POST") return await handleSaveConfig(request, response);
+      return sendJson(response, 405, { error: "Method not allowed" });
+    }
+
+    if (parsedUrl === "/api/send") {
+      if (request.method === "POST") return await handleSend(request, response);
+      return sendJson(response, 405, { error: "Method not allowed" });
+    }
+
     if (request.method === "GET") return await serveFile(response, parsedUrl);
     sendJson(response, 405, { error: "Method not allowed" });
   } catch (error) {

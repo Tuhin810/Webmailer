@@ -1,6 +1,6 @@
 {
-  "gmail": "nbcc99962@gmail.com",
-  "app_password": "jdfocpypvmfzpmns",
-  "dry_run": false,
+  "gmail": "test@gmail.com",
+  "app_password": "testpassword123",
+  "dry_run": true,
   "delay_ms": 750
 }
