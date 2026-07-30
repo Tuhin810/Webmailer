@@ -65,36 +65,24 @@ function escapeHtml(str) {
   return String(str).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
 
-// 1. CONFIGURATION MANAGEMENT
-async function loadConfig() {
-  try {
-    const res = await fetch("/api/config");
-    if (!res.ok) return;
-    const data = await res.json();
-    activeConfig = data;
+// 1. CONFIGURATION MANAGEMENT (Browser localStorage)
+function loadConfig() {
+  const gmail = localStorage.getItem("mailer_gmail") || "";
+  const app_password = localStorage.getItem("mailer_pass") || "";
+  const delay_ms = localStorage.getItem("mailer_delay") || "750";
 
-    if (data.gmail) {
-      const parts = data.gmail.split("@")[0];
-      const displayName = parts.charAt(0).toUpperCase() + parts.slice(1);
-      profileDisplayName.textContent = `${displayName} (me)`;
-      avatarInitials.textContent = parts.slice(0, 2).toUpperCase();
-      cfgGmailInput.value = data.gmail;
-    }
-    cfgAppPasswordInput.value = data.app_password || "";
-    cfgDelayInput.value = data.delay_ms || 750;
-    cfgDryRunCheckbox.checked = Boolean(data.dry_run);
+  cfgGmailInput.value = gmail;
+  cfgAppPasswordInput.value = app_password;
+  cfgDelayInput.value = delay_ms;
 
-    if (data.dry_run) {
-      broadcastCheckbox.checked = false;
-      statMode.textContent = "Mode: Dry Run (Test)";
-    } else {
-      broadcastCheckbox.checked = true;
-      statMode.textContent = "Mode: Broadcast (Live)";
-    }
-
-    log(`Loaded sender profile (${data.gmail || "No Gmail configured"}).`, "sys");
-  } catch (err) {
-    log(`Could not load config: ${err.message}`, "error");
+  if (gmail) {
+    const parts = gmail.split("@")[0];
+    const displayName = parts.charAt(0).toUpperCase() + parts.slice(1);
+    profileDisplayName.textContent = `${displayName} (me)`;
+    avatarInitials.textContent = parts.slice(0, 2).toUpperCase();
+    log(`Loaded sender profile (${gmail}).`, "sys");
+  } else {
+    log(`No Gmail sender profile set. Click "From" badge to set up.`, "sys");
   }
 }
 
@@ -107,36 +95,23 @@ cfgCancelBtn.addEventListener("click", () => {
   configModal.classList.add("hidden");
 });
 
-cfgSaveBtn.addEventListener("click", async () => {
+cfgSaveBtn.addEventListener("click", () => {
   const gmail = cfgGmailInput.value.trim();
   const app_password = cfgAppPasswordInput.value.trim();
-  const delay_ms = Number(cfgDelayInput.value) || 750;
-  const dry_run = cfgDryRunCheckbox.checked;
+  const delay_ms = cfgDelayInput.value || "750";
 
   if (!gmail) return alert("Please enter a Gmail address.");
 
-  try {
-    const res = await fetch("/api/config", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ gmail, app_password, delay_ms, dry_run }),
-    });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || "Failed to save configuration.");
+  localStorage.setItem("mailer_gmail", gmail);
+  localStorage.setItem("mailer_pass", app_password);
+  localStorage.setItem("mailer_delay", delay_ms);
 
-    activeConfig.gmail = gmail;
-    activeConfig.delay_ms = delay_ms;
-    activeConfig.dry_run = dry_run;
+  const parts = gmail.split("@")[0];
+  profileDisplayName.textContent = `${parts.charAt(0).toUpperCase() + parts.slice(1)} (me)`;
+  avatarInitials.textContent = parts.slice(0, 2).toUpperCase();
+  configModal.classList.add("hidden");
 
-    const parts = gmail.split("@")[0];
-    profileDisplayName.textContent = `${parts.charAt(0).toUpperCase() + parts.slice(1)} (me)`;
-    avatarInitials.textContent = parts.slice(0, 2).toUpperCase();
-    configModal.classList.add("hidden");
-
-    log(`Config updated: Sender set to ${gmail}.`, "sys");
-  } catch (err) {
-    alert(`Error: ${err.message}`);
-  }
+  log(`Sender profile updated: ${gmail}.`, "sys");
 });
 
 document.addEventListener("click", (e) => {
@@ -493,18 +468,15 @@ form.addEventListener("submit", async (e) => {
 
   try {
     const requestPayload = {
+      gmail: cfgGmailInput.value.trim(),
+      app_password: cfgAppPasswordInput.value.trim(),
+      delay_ms: Number(cfgDelayInput.value) || 750,
       recipients: loadedRecipients,
       subject,
       message,
       attachment: currentAttachment,
-      override_dry_run: !isBroadcast
+      dryRun: !isBroadcast
     };
-
-    await fetch("/api/config", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ...activeConfig, dry_run: !isBroadcast }),
-    });
 
     const res = await fetch("/api/send", {
       method: "POST",
