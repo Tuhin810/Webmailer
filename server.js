@@ -95,8 +95,23 @@ async function handleSend(request, response) {
 
   const transporter = nodemailer.createTransport({
     service: "gmail",
+    host: "smtp.gmail.com",
+    port: 465,
+    secure: true,
+    pool: true,
+    maxConnections: 3,
+    connectionTimeout: 8000,
+    greetingTimeout: 5000,
+    socketTimeout: 10000,
     auth: { user: config.gmail, pass: config.app_password },
   });
+
+  try {
+    await transporter.verify();
+  } catch (verifyError) {
+    throw new Error(`Gmail SMTP Login Failed: ${verifyError.message || "Invalid credentials"}. Verify your Gmail and 16-character App Password.`);
+  }
+
   const results = [];
   for (const recipient of recipients) {
     try {
@@ -115,6 +130,7 @@ async function handleSend(request, response) {
     }
     if (recipients.indexOf(recipient) < recipients.length - 1) await wait(Number(config.delay_ms) || 750);
   }
+  transporter.close();
   sendJson(response, 200, { dryRun: false, results });
 }
 
