@@ -1,0 +1,259 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Gmail CSV Mailer Studio</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap"
+    rel="stylesheet">
+  <link rel="stylesheet" href="styles.css" />
+</head>
+
+<body>
+  <div class="app-container">
+    <!-- LEFT PANE: Email Composer -->
+    <section class="composer-pane" aria-label="Email Composer">
+      <header class="composer-header">
+        <h1 class="composer-title">New mail</h1>
+        <div class="window-controls">
+          <span class="win-btn win-min" title="Minimize">–</span>
+          <span class="win-btn win-max" title="Maximize">⤢</span>
+          <span class="win-btn win-close" title="Close">✕</span>
+        </div>
+      </header>
+
+      <form id="mailer-form" class="composer-body">
+        <!-- FROM ROW -->
+        <div class="field-row from-row">
+          <span class="field-label">From</span>
+          <div class="profile-badge-wrapper">
+            <button type="button" id="profile-badge-btn" class="profile-badge" aria-expanded="false"
+              title="Click to edit Gmail credentials">
+              <span class="avatar-circle" id="avatar-initials">JM</span>
+              <span class="profile-name" id="profile-display-name">John Miller (me)</span>
+              <svg class="chevron-icon" width="12" height="12" viewBox="0 0 12 12" fill="none">
+                <path d="M2.5 4.5L6 8L9.5 4.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"
+                  stroke-linejoin="round" />
+              </svg>
+            </button>
+
+            <!-- Credentials Popover Modal -->
+            <div id="config-modal" class="popover-modal hidden" aria-hidden="true">
+              <div class="popover-header">
+                <h3>Sender Credentials</h3>
+                <p class="popover-subtitle">Configure your Gmail SMTP settings directly</p>
+              </div>
+              <div class="popover-body">
+                <label class="input-group">
+                  <span>Gmail Address</span>
+                  <input type="email" id="cfg-gmail" placeholder="you@gmail.com" required />
+                </label>
+                <label class="input-group">
+                  <span>App Password</span>
+                  <input type="text" id="cfg-app-password" placeholder="16-character app password" autocomplete="off"
+                    spellcheck="false" />
+                  <span class="input-hint">Generate in Google Account > Security > App Passwords</span>
+                </label>
+                <div class="input-row-dual">
+                  <label class="input-group">
+                    <span>Delay (ms)</span>
+                    <input type="number" id="cfg-delay" value="750" min="100" max="5000" step="50" />
+                  </label>
+                  <label class="input-group checkbox-label">
+                    <input type="checkbox" id="cfg-dry-run" />
+                    <span>Dry Run Mode</span>
+                  </label>
+                </div>
+              </div>
+              <div class="popover-footer">
+                <button type="button" id="cfg-cancel-btn" class="btn-secondary">Cancel</button>
+                <button type="button" id="cfg-save-btn" class="btn-primary">Save Config</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- TO ROW -->
+        <div class="field-row to-row">
+          <span class="field-label">To</span>
+          <div class="to-content">
+            <div class="to-actions">
+              <label class="custom-csv-btn" title="Choose CSV file with email & name columns">
+                <span class="chip-avatar-icon">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                    <polyline points="14 2 14 8 20 8"></polyline>
+                    <line x1="12" y1="18" x2="12" y2="12"></line>
+                    <line x1="9" y1="15" x2="15" y2="15"></line>
+                  </svg>
+                </span>
+                <span class="chip-text">Choose CSV</span>
+                <input id="csv-input" type="file" accept=".csv,text/csv" hidden />
+              </label>
+            </div>
+            <div id="recipients-list" class="recipients-list">
+              <!-- Custom Recipient Chips or Placeholder -->
+            </div>
+          </div>
+        </div>
+
+        <!-- SUBJECT ROW (Full-width soft grey strip) -->
+        <div class="field-row subject-row">
+          <span class="field-label">Subject</span>
+          <input id="subject-input" type="text" class="subject-field" placeholder="Type here..." required />
+        </div>
+
+        <!-- MESSAGE BODY AREA -->
+        <div class="editor-area">
+          <textarea id="message-input" class="message-textarea" rows="7"
+            placeholder="Write your message here... Use variables like {name} and {email} to personalize."
+            required></textarea>
+        </div>
+
+        <!-- ATTACHMENTS SECTION -->
+        <div class="attachments-section">
+          <span class="section-title">Attachments</span>
+          <div id="attachments-container" class="attachments-container">
+            <!-- Empty Dashed Upload Box Dropzone -->
+            <label class="attachment-upload-box" id="attachment-dropzone"
+              title="Click or drag & drop a PDF or image file">
+              <input id="attachment-file-input" type="file"
+                accept="application/pdf,image/*,.pdf,.png,.jpg,.jpeg,.gif,.webp" hidden />
+              <div class="upload-box-icon">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="black" stroke-width="2">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                  <polyline points="17 8 12 3 7 8"></polyline>
+                  <line x1="12" y1="3" x2="12" y2="15"></line>
+                </svg>
+              </div>
+              <div class="upload-box-text">
+                <span class="upload-main-text">Click or drop PDF / image to attach</span>
+                <span class="upload-sub-text">Supports PDF, PNG, JPG, GIF, WEBP</span>
+              </div>
+            </label>
+          </div>
+        </div>
+
+        <!-- BOTTOM TOOLBAR & ACTION FOOTER -->
+        <footer class="composer-footer">
+          <div class="formatting-toolbar">
+            <!-- DYNAMIC VARIABLE FEATURE BUTTON (2nd Screenshot Style) -->
+            <div class="variable-picker-wrapper">
+              <button type="button" class="variable-trigger-btn" id="variable-trigger-btn"
+                onclick="openVariableDrawer()" title="Click to insert variables ({name}, {email})">
+                <span class="var-symbol">{•}</span>
+                <span class="var-trigger-text">Add Variable</span>
+                <svg class="chevron-icon" width="12" height="12" viewBox="0 0 12 12" fill="none">
+                  <path d="M2.5 4.5L6 8L9.5 4.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"
+                    stroke-linejoin="round" />
+                </svg>
+              </button>
+            </div>
+          </div>
+
+          <!-- RIGHT ACTION BUTTONS -->
+          <div class="action-buttons-group">
+            <label class="broadcast-toggle-wrapper"
+              title="Toggle Broadcast mode (ON: Send live emails, OFF: Dry Run test)">
+              <input type="checkbox" id="broadcast-checkbox" checked />
+              <span class="toggle-slider"></span>
+              <span class="broadcast-text">Broadcast</span>
+              <span class="info-icon"
+                title="Broadcast mode sends real emails to recipients. Toggle OFF for dry run.">ⓘ</span>
+            </label>
+
+            <button type="button" class="btn-discard" id="discard-btn">Discard</button>
+            <button type="submit" class="btn-send-email" id="send-button">Send email</button>
+          </div>
+        </footer>
+      </form>
+    </section>
+
+    <!-- RIGHT PANE: Live Terminal Window -->
+    <section class="terminal-pane" aria-label="Terminal Activity Logs">
+      <div class="terminal-header">
+        <div class="mac-dots">
+          <span class="dot dot-red"></span>
+          <span class="dot dot-yellow"></span>
+          <span class="dot dot-green"></span>
+        </div>
+        <div class="terminal-title">
+          <span class="terminal-icon">⚡</span>
+          <span>TERMINAL / MAILER LOGS</span>
+        </div>
+        <div class="terminal-actions">
+          <span class="status-indicator-badge" id="terminal-status-badge">
+            <span class="pulse-dot"></span>
+            <span id="status-text">CONNECTED</span>
+          </span>
+          <button type="button" id="clear-terminal-btn" class="terminal-mini-btn"
+            title="Clear terminal output">Clear</button>
+        </div>
+      </div>
+
+      <div class="progress-container hidden" id="progress-container">
+        <div class="progress-bar-fill" id="progress-bar-fill"></div>
+        <span class="progress-text" id="progress-text">0 / 0 sent</span>
+      </div>
+
+      <div class="terminal-console">
+        <pre id="terminal" role="log" aria-live="polite">Initializing Mailer Terminal...
+[SYS] Web Mailer v1.0.0 started.
+[SYS] Connected to localhost server. Choose CSV to load recipients.</pre>
+      </div>
+
+      <footer class="terminal-footer">
+        <div class="term-stats">
+          <span id="stat-recipients">Recipients: 0</span>
+          <span class="dot-sep">•</span>
+          <span id="stat-mode">Mode: Broadcast</span>
+        </div>
+        <div class="term-help">Shift + Scroll to navigate logs</div>
+      </footer>
+    </section>
+  </div>
+
+  <!-- SLIDE-UP VARIABLE DRAWER OVERLAY (Matching Screenshot 2) -->
+  <div id="variable-drawer" class="drawer-overlay hidden" aria-hidden="true">
+    <div class="drawer-backdrop" id="drawer-backdrop" onclick="closeVariableDrawer()"></div>
+    <div class="drawer-content">
+      <div class="drawer-handle-bar"></div>
+      <div class="drawer-header">
+        <div class="drawer-title-group">
+          <span class="drawer-icon">{•}</span>
+          <h3>Add Variable</h3>
+        </div>
+        <button type="button" id="close-drawer-btn" class="drawer-close-btn" onclick="closeVariableDrawer()"
+          title="Close drawer">✕</button>
+      </div>
+      <p class="drawer-subtitle">Select a variable below to insert it into your email template:</p>
+      <div class="drawer-variable-list">
+        <button type="button" class="drawer-variable-card variable-chip-btn" data-variable="name">
+          <div class="var-badge-icon">{•}</div>
+          <div class="var-card-details">
+            <span class="var-card-name">name</span>
+            <span class="var-card-desc">Inserts recipient's name from CSV</span>
+          </div>
+          <span class="var-insert-pill">Insert {name}</span>
+        </button>
+
+        <button type="button" class="drawer-variable-card variable-chip-btn" data-variable="email">
+          <div class="var-badge-icon">{•}</div>
+          <div class="var-card-details">
+            <span class="var-card-name">email</span>
+            <span class="var-card-desc">Inserts recipient's email address</span>
+          </div>
+          <span class="var-insert-pill">Insert {email}</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+
+</html>

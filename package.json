@@ -1,0 +1,13 @@
+{
+  "name": "gmail-csv-web-mailer",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Local web interface for sending Gmail messages to an opted-in CSV list.",
+  "scripts": {
+    "start": "node server.js",
+    "build": "echo 'No build step needed for Node server'"
+  },
+  "dependencies": {
+    "nodemailer": "^7.0.6"
+  }
+}
