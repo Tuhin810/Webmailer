@@ -94,15 +94,13 @@ async function handleSend(request, response) {
   }
 
   const transporter = nodemailer.createTransport({
-    service: "gmail",
     host: "smtp.gmail.com",
-    port: 465,
-    secure: true,
-    pool: true,
-    maxConnections: 3,
-    connectionTimeout: 8000,
-    greetingTimeout: 5000,
-    socketTimeout: 10000,
+    port: 587,
+    secure: false,
+    requireTLS: true,
+    connectionTimeout: 15000,
+    greetingTimeout: 10000,
+    socketTimeout: 20000,
     auth: { user: config.gmail, pass: config.app_password },
   });
 
