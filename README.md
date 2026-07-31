@@ -1,6 +1,6 @@
 # Web Gmail CSV mailer
 
-A local HTML/JavaScript interface for the Gmail CSV mailer. The browser selects the CSV and PDF; the local Node.js server sends email through Gmail. Do not expose this server to the internet.
+A web interface for sending personalized Gmail messages to an opted-in CSV list. Users sign in with Google; the app sends through the Gmail API and never asks for Gmail app passwords.
 
 ## Setup
 
@@ -10,16 +10,30 @@ A local HTML/JavaScript interface for the Gmail CSV mailer. The browser selects 
    npm install
    ```
 
-2. Copy `config.example.json` to `config.json`.
-3. In `config.json`, add your Gmail address and Google App Password. Keep `"dry_run": true` for the first check.
+2. Configure the following environment variables locally or in Vercel (do not commit them):
+
+   ```bash
+   GOOGLE_CLIENT_ID=...
+   GOOGLE_CLIENT_SECRET=...
+   GOOGLE_REDIRECT_URI=http://localhost:3000/api/auth/google/callback
+   SESSION_ENCRYPTION_KEY=a-long-random-secret
+   ```
+
+   In Google Cloud, enable the Gmail API, add `https://www.googleapis.com/auth/gmail.send` to the OAuth consent-screen scopes, and register the redirect URI exactly. For production this app uses:
+
+   ```text
+   https://webmailer-five.vercel.app/api/auth/google/callback
+   ```
+
+3. For local development, set the environment variables in your shell before starting the app. For Vercel, add all four under **Project Settings → Environment Variables**, then redeploy.
 4. Start it:
 
    ```bash
    npm start
    ```
 
-5. Open [http://localhost:3000](http://localhost:3000), choose your CSV and optional PDF, write the subject/message, and select **Validate and send**.
+5. Open [http://localhost:3000](http://localhost:3000), click the **From** badge, choose **Sign in with Google**, then choose your CSV and optional PDF.
 
 The terminal panel at the bottom of the page shows recipient validation and the sent/failed result for every email.
 
-When the dry run looks correct, set `"dry_run": false` in `config.json` and restart the server to send. Use this only for recipients who have agreed to receive the message.
+When the dry run looks correct, enable Broadcast to send. Use this only for recipients who have agreed to receive the message.

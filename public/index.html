@@ -11,6 +11,9 @@
     href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap"
     rel="stylesheet">
   <link rel="stylesheet" href="styles.css" />
+  <!-- CDN Scripts for Client-Side HTML to Canvas, PDF, and Image Conversion -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 </head>
 
 <body>
@@ -32,7 +35,7 @@
           <span class="field-label">From</span>
           <div class="profile-badge-wrapper">
             <button type="button" id="profile-badge-btn" class="profile-badge" aria-expanded="false"
-              title="Click to edit Gmail credentials">
+              title="Connect or disconnect your Google account">
               <span class="avatar-circle" id="avatar-initials">JM</span>
               <span class="profile-name" id="profile-display-name">John Miller (me)</span>
               <svg class="chevron-icon" width="12" height="12" viewBox="0 0 12 12" fill="none">
@@ -44,20 +47,11 @@
             <!-- Credentials Popover Modal -->
             <div id="config-modal" class="popover-modal hidden" aria-hidden="true">
               <div class="popover-header">
-                <h3>Sender Credentials</h3>
-                <p class="popover-subtitle">Configure your Gmail SMTP settings directly</p>
+                <h3>Google account</h3>
+                <p class="popover-subtitle">Sign in with Google to send from your Gmail account.</p>
               </div>
               <div class="popover-body">
-                <label class="input-group">
-                  <span>Gmail Address</span>
-                  <input type="email" id="cfg-gmail" placeholder="you@gmail.com" required />
-                </label>
-                <label class="input-group">
-                  <span>App Password</span>
-                  <input type="text" id="cfg-app-password" placeholder="16-character app password" autocomplete="off"
-                    spellcheck="false" />
-                  <span class="input-hint">Generate in Google Account > Security > App Passwords</span>
-                </label>
+                <p id="google-account-status" class="input-hint">Checking Google connection…</p>
                 <div class="input-row-dual">
                   <label class="input-group">
                     <span>Delay (ms)</span>
@@ -71,7 +65,8 @@
               </div>
               <div class="popover-footer">
                 <button type="button" id="cfg-cancel-btn" class="btn-secondary">Cancel</button>
-                <button type="button" id="cfg-save-btn" class="btn-primary">Save Config</button>
+                <button type="button" id="google-connect-btn" class="btn-primary">Sign in with Google</button>
+                <button type="button" id="google-disconnect-btn" class="btn-secondary hidden">Disconnect</button>
               </div>
             </div>
           </div>
@@ -107,46 +102,110 @@
           <input id="subject-input" type="text" class="subject-field" placeholder="Type here..." required />
         </div>
 
-        <!-- MESSAGE BODY AREA -->
+        <!-- MESSAGE BODY AREA WITH VISUAL PREVIEW & HTML SIDE DRAWER -->
         <div class="editor-area">
-          <textarea id="message-input" class="message-textarea" rows="7"
-            placeholder="Write your message here... Use variables like {name} and {email} to personalize."
-            required></textarea>
+          <div class="editor-header-bar">
+            <div class="editor-mode-toggle">
+              <span class="editor-tab active" title="Visual Editable & Live Preview">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                  <circle cx="12" cy="12" r="3"></circle>
+                </svg>
+                <span>Visual Editor</span>
+              </span>
+              <button type="button" id="open-html-drawer-btn" class="editor-tab btn-open-side-drawer" onclick="openHtmlCodeDrawer()" title="Open HTML Source Editor in Side Drawer">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <polyline points="16 18 22 12 16 6"></polyline>
+                  <polyline points="8 6 2 12 8 18"></polyline>
+                </svg>
+                <span>&lt;/&gt; HTML Source (Side Drawer)</span>
+              </button>
+            </div>
+
+            <div id="rich-toolbar" class="rich-toolbar">
+              <button type="button" class="format-btn" data-cmd="bold" title="Bold (Ctrl+B)"><b>B</b></button>
+              <button type="button" class="format-btn" data-cmd="italic" title="Italic (Ctrl+I)"><i>I</i></button>
+              <button type="button" class="format-btn" data-cmd="underline" title="Underline (Ctrl+U)"><u>U</u></button>
+              <span class="toolbar-divider"></span>
+              <button type="button" class="format-btn" data-cmd="insertUnorderedList" title="Bullet List">• List</button>
+              <button type="button" class="format-btn" data-cmd="createLink" title="Insert Link">🔗 Link</button>
+              <button type="button" class="format-btn" data-cmd="removeFormat" title="Clear Formatting">✕ Clear</button>
+            </div>
+          </div>
+
+          <div id="editor-wrapper" class="editor-wrapper">
+            <!-- Visual Editable & Preview Container -->
+            <div id="message-visual" class="message-visual" contenteditable="true"
+              data-placeholder="Write your message here... Use formatting or variables like {name} and {email} to personalize."></div>
+
+            <!-- Hidden Synced Form Input -->
+            <textarea id="message-input" class="message-textarea hidden" rows="7" required></textarea>
+          </div>
         </div>
 
         <!-- ATTACHMENTS SECTION -->
         <div class="attachments-section">
-          <span class="section-title">Attachments</span>
+          <div class="section-title-row">
+            <span class="section-title">Attachments</span>
+            <span class="section-subtitle">Upload a file or convert pasted HTML</span>
+          </div>
           <div id="attachments-container" class="attachments-container">
-            <!-- Empty Dashed Upload Box Dropzone -->
-            <label class="attachment-upload-box" id="attachment-dropzone"
-              title="Click or drag & drop a PDF or image file">
-              <input id="attachment-file-input" type="file"
-                accept="application/pdf,image/*,.pdf,.png,.jpg,.jpeg,.gif,.webp" hidden />
-              <div class="upload-box-icon">
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="black" stroke-width="2">
-                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-                  <polyline points="17 8 12 3 7 8"></polyline>
-                  <line x1="12" y1="3" x2="12" y2="15"></line>
-                </svg>
-              </div>
-              <div class="upload-box-text">
-                <span class="upload-main-text">Click or drop PDF / image to attach</span>
-                <span class="upload-sub-text">Supports PDF, PNG, JPG, GIF, WEBP</span>
-              </div>
-            </label>
+            <div class="attachment-options-grid" id="attachment-options-grid">
+              <!-- Option 1: File Upload Box -->
+              <label class="attachment-upload-box" id="attachment-dropzone" title="Click or drag & drop a PDF, image, or document file">
+                <input id="attachment-file-input" type="file" accept="application/pdf,image/*,.pdf,.png,.jpg,.jpeg,.gif,.webp,.docx,.doc" hidden />
+                <div class="upload-box-icon">
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                    <polyline points="17 8 12 3 7 8"></polyline>
+                    <line x1="12" y1="3" x2="12" y2="15"></line>
+                  </svg>
+                </div>
+                <div class="upload-box-text">
+                  <span class="upload-main-text">Upload File</span>
+                  <span class="upload-sub-text">PDF, PNG, JPG, or DOCX</span>
+                </div>
+              </label>
+
+              <!-- Option 2: Convert HTML to Attachment Box -->
+              <button type="button" class="attachment-html-convert-box" id="open-html-attachment-btn" onclick="openHtmlAttachmentDrawer()" title="Paste HTML and convert to PDF, Image, or DOCX attachment">
+                <div class="upload-box-icon html-convert-icon">
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polyline points="16 18 22 12 16 6"></polyline>
+                    <polyline points="8 6 2 12 8 18"></polyline>
+                  </svg>
+                </div>
+                <div class="upload-box-text">
+                  <span class="upload-main-text">Paste HTML & Convert</span>
+                  <span class="upload-sub-text">Convert to PDF, Image, or DOCX</span>
+                </div>
+              </button>
+            </div>
           </div>
         </div>
 
         <!-- BOTTOM TOOLBAR & ACTION FOOTER -->
         <footer class="composer-footer">
           <div class="formatting-toolbar">
-            <!-- DYNAMIC VARIABLE FEATURE BUTTON (2nd Screenshot Style) -->
+            <!-- DYNAMIC VARIABLE FEATURE BUTTON -->
             <div class="variable-picker-wrapper">
               <button type="button" class="variable-trigger-btn" id="variable-trigger-btn"
                 onclick="openVariableDrawer()" title="Click to insert variables ({name}, {email})">
                 <span class="var-symbol">{•}</span>
                 <span class="var-trigger-text">Add Variable</span>
+                <svg class="chevron-icon" width="12" height="12" viewBox="0 0 12 12" fill="none">
+                  <path d="M2.5 4.5L6 8L9.5 4.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"
+                    stroke-linejoin="round" />
+                </svg>
+              </button>
+            </div>
+
+            <!-- HTML TEMPLATE DRAWER TRIGGER BUTTON -->
+            <div class="variable-picker-wrapper">
+              <button type="button" class="variable-trigger-btn template-trigger-btn" id="template-trigger-btn"
+                onclick="openTemplateDrawer()" title="Choose pre-designed HTML template">
+                <span class="var-symbol">🎨</span>
+                <span class="var-trigger-text">HTML Templates</span>
                 <svg class="chevron-icon" width="12" height="12" viewBox="0 0 12 12" fill="none">
                   <path d="M2.5 4.5L6 8L9.5 4.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"
                     stroke-linejoin="round" />
@@ -248,6 +307,195 @@
             <span class="var-card-desc">Inserts recipient's email address</span>
           </div>
           <span class="var-insert-pill">Insert {email}</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- SLIDE-UP TEMPLATE DRAWER OVERLAY -->
+  <div id="template-drawer" class="drawer-overlay hidden" aria-hidden="true">
+    <div class="drawer-backdrop" id="template-drawer-backdrop" onclick="closeTemplateDrawer()"></div>
+    <div class="drawer-content side-drawer-content">
+      <div class="drawer-handle-bar"></div>
+      <div class="drawer-header">
+        <div class="drawer-title-group">
+          <span class="drawer-icon">🎨</span>
+          <h3>HTML Email Templates</h3>
+        </div>
+        <button type="button" id="close-template-drawer-btn" class="drawer-close-btn" onclick="closeTemplateDrawer()"
+          title="Close drawer">✕</button>
+      </div>
+      <p class="drawer-subtitle">Choose a pre-designed HTML template to load into your composer:</p>
+
+      <div class="template-grid">
+        <!-- Template 1: Modern Outreach -->
+        <div class="template-card" onclick="applyTemplate('modern')">
+          <div class="template-card-header">
+            <span class="template-badge badge-blue">Popular</span>
+            <h4>Modern Outreach</h4>
+          </div>
+          <p class="template-desc">Gradient header, CTA button, and personalized {name} variable.</p>
+          <div class="template-preview-box">
+            <div class="mini-header-gradient">Exclusive Offer for {name}</div>
+            <div class="mini-text">Hi {name}, we are reaching out regarding {email}...</div>
+          </div>
+          <button type="button" class="btn-use-template">Use Template</button>
+        </div>
+
+        <!-- Template 2: Minimal Newsletter -->
+        <div class="template-card" onclick="applyTemplate('newsletter')">
+          <div class="template-card-header">
+            <span class="template-badge badge-gray">Clean</span>
+            <h4>Minimal Newsletter</h4>
+          </div>
+          <p class="template-desc">Clean typography with bullet points and modern divider.</p>
+          <div class="template-preview-box">
+            <div class="mini-text"><strong>Hello {name},</strong><br>• Feature Release<br>• Account Sync ({email})</div>
+          </div>
+          <button type="button" class="btn-use-template">Use Template</button>
+        </div>
+
+        <!-- Template 3: Personal Follow-Up -->
+        <div class="template-card" onclick="applyTemplate('followup')">
+          <div class="template-card-header">
+            <span class="template-badge badge-purple">Direct</span>
+            <h4>Personal Follow-Up</h4>
+          </div>
+          <p class="template-desc">Short & conversational follow-up message for high response rates.</p>
+          <div class="template-preview-box">
+            <div class="mini-text">Hi {name}, following up regarding your account...</div>
+          </div>
+          <button type="button" class="btn-use-template">Use Template</button>
+        </div>
+
+        <!-- Template 4: Announcement -->
+        <div class="template-card" onclick="applyTemplate('announcement')">
+          <div class="template-card-header">
+            <span class="template-badge badge-green">Promo</span>
+            <h4>Product Launch</h4>
+          </div>
+          <p class="template-desc">Bold banner with highlight card and action button.</p>
+          <div class="template-preview-box">
+            <div class="mini-header-gradient" style="background: linear-gradient(135deg, #059669, #10b981);">🚀 Launch Special for {name}</div>
+            <div class="mini-text">Claim your exclusive trial discount for {email}...</div>
+          </div>
+          <button type="button" class="btn-use-template">Use Template</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- HTML CODE EDITOR RIGHT SIDE DRAWER OVERLAY -->
+  <div id="html-code-drawer" class="drawer-overlay hidden" aria-hidden="true">
+    <div class="drawer-backdrop" id="html-code-backdrop" onclick="closeHtmlCodeDrawer()"></div>
+    <div class="side-panel-drawer">
+      <div class="drawer-header">
+        <div class="drawer-title-group">
+          <span class="drawer-icon" style="color: #60a5fa; background: rgba(59, 130, 246, 0.15);">&lt;/&gt;</span>
+          <h3>HTML Source Editor</h3>
+        </div>
+        <button type="button" id="close-html-code-btn" class="drawer-close-btn" onclick="closeHtmlCodeDrawer()" title="Close side drawer">✕</button>
+      </div>
+
+      <p class="drawer-subtitle">Edit the raw HTML source code. Changes update live in your visual email composer.</p>
+
+      <div class="code-quick-tags">
+        <button type="button" class="tag-insert-btn" onclick="insertTagIntoCode('<p></p>')">&lt;p&gt;</button>
+        <button type="button" class="tag-insert-btn" onclick="insertTagIntoCode('<b></b>')">&lt;b&gt;</button>
+        <button type="button" class="tag-insert-btn" onclick="insertTagIntoCode('<i></i>')">&lt;i&gt;</button>
+        <button type="button" class="tag-insert-btn" onclick="insertTagIntoCode('<a href=\'https://\'>Link</a>')">&lt;a&gt;</button>
+        <button type="button" class="tag-insert-btn" onclick="insertTagIntoCode('<h1></h1>')">&lt;h1&gt;</button>
+        <button type="button" class="tag-insert-btn" onclick="insertTagIntoCode('<br>')">&lt;br&gt;</button>
+        <button type="button" class="tag-insert-btn" onclick="insertTagIntoCode('{name}')">{name}</button>
+        <button type="button" class="tag-insert-btn" onclick="insertTagIntoCode('{email}')">{email}</button>
+      </div>
+
+      <div class="drawer-code-wrapper">
+        <textarea id="drawer-html-input" class="drawer-html-textarea" placeholder="Write or paste your HTML code here... e.g. <p>Hello <b>{name}</b></p>"></textarea>
+      </div>
+
+      <div class="drawer-footer-actions">
+        <button type="button" class="btn-secondary" onclick="closeHtmlCodeDrawer()">Cancel</button>
+        <button type="button" class="btn-primary" onclick="syncAndCloseHtmlCodeDrawer()">Apply to Email</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- HTML ATTACHMENT CONVERTER SIDE PANEL DRAWER -->
+  <div id="html-attachment-drawer" class="drawer-overlay hidden" aria-hidden="true">
+    <div class="drawer-backdrop" id="html-attachment-backdrop" onclick="closeHtmlAttachmentDrawer()"></div>
+    <div class="side-panel-drawer html-attachment-panel">
+      <div class="drawer-header">
+        <div class="drawer-title-group">
+          <span class="drawer-icon" style="color: #ec4899; background: rgba(236, 72, 153, 0.15);">⚡</span>
+          <div>
+            <h3>Convert HTML to Attachment</h3>
+            <span class="drawer-header-subtitle">Convert HTML code to PDF, Image, or DOCX attachment</span>
+          </div>
+        </div>
+        <button type="button" id="close-html-attachment-btn" class="drawer-close-btn" onclick="closeHtmlAttachmentDrawer()" title="Close side panel">✕</button>
+      </div>
+
+      <!-- Live Dynamic Filename Banner -->
+      <div class="attachment-filename-banner">
+        <div class="filename-banner-left">
+          <span class="filename-banner-label">Output Filename:</span>
+          <span class="filename-banner-value" id="attachment-filename-preview">Subject_Name.pdf</span>
+        </div>
+        <span class="filename-banner-hint">(Auto-synced with Email Subject)</span>
+      </div>
+
+      <!-- Format Selection Control -->
+      <div class="format-selection-group">
+        <label class="format-option-label">Choose Attachment Format:</label>
+        <div class="format-segmented-control">
+          <button type="button" class="format-segment-btn active" data-format="pdf" onclick="selectAttachmentFormat('pdf')">
+            <span class="format-icon">📄</span>
+            <span>PDF Document (.pdf)</span>
+          </button>
+          <button type="button" class="format-segment-btn" data-format="image" onclick="selectAttachmentFormat('image')">
+            <span class="format-icon">🖼️</span>
+            <span>Image (.png)</span>
+          </button>
+          <button type="button" class="format-segment-btn" data-format="docx" onclick="selectAttachmentFormat('docx')">
+            <span class="format-icon">📝</span>
+            <span>DOCX Document (.docx)</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Quick Actions Bar -->
+      <div class="code-quick-tags">
+        <span class="quick-tags-title">Quick Content:</span>
+        <button type="button" class="tag-insert-btn tag-highlight-btn" onclick="useComposerHtmlForAttachment()">Use Email Body HTML</button>
+        <button type="button" class="tag-insert-btn" onclick="loadSampleInvoiceHtml()">Sample Invoice</button>
+        <button type="button" class="tag-insert-btn" onclick="loadSampleCertificateHtml()">Sample Certificate</button>
+        <button type="button" class="tag-insert-btn" onclick="insertTagIntoAttachmentHtml('<h1>Title</h1>')">&lt;h1&gt;</button>
+        <button type="button" class="tag-insert-btn" onclick="insertTagIntoAttachmentHtml('<p>Text</p>')">&lt;p&gt;</button>
+      </div>
+
+      <!-- Split HTML Editor & Live Visual Preview -->
+      <div class="attachment-editor-split">
+        <div class="split-editor-pane">
+          <label class="pane-label">&lt;/&gt; HTML Source Code</label>
+          <textarea id="attachment-html-input" class="drawer-html-textarea" placeholder="Paste your HTML code here... e.g. <div style='padding:24px; font-family:sans-serif;'><h1>Monthly Statement</h1><p>Dear {name}, here is your summary...</p></div>"></textarea>
+        </div>
+
+        <div class="split-preview-pane">
+          <label class="pane-label">👁️ Live Visual Preview</label>
+          <div class="preview-scroll-wrapper">
+            <div id="attachment-html-preview" class="attachment-preview-frame">
+              <div class="preview-placeholder">Paste HTML or choose a quick template above to render preview</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="drawer-footer-actions">
+        <button type="button" class="btn-secondary" onclick="closeHtmlAttachmentDrawer()">Cancel</button>
+        <button type="button" class="btn-primary btn-generate-attachment" id="generate-attachment-btn" onclick="convertAndAttachHtml()">
+          <span>Convert & Attach</span>
+          <span class="format-badge-pill" id="generate-btn-format-pill">PDF</span>
         </button>
       </div>
     </div>
