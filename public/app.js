@@ -33,6 +33,7 @@ const pdfInput = document.querySelector("#pdf-input");
 const attachmentsContainer = document.querySelector("#attachments-container");
 const broadcastCheckbox = document.querySelector("#broadcast-checkbox");
 const discardBtn = document.querySelector("#discard-btn");
+const fromNameInput = document.querySelector("#from-name-input");
 
 // Variable Menu Elements
 const variableTriggerBtn = document.querySelector("#variable-trigger-btn");
@@ -97,6 +98,9 @@ function escapeHtml(str) {
 async function loadConfig() {
   const delay_ms = localStorage.getItem("mailer_delay") || "750";
   cfgDelayInput.value = delay_ms;
+  if (fromNameInput) {
+    fromNameInput.value = localStorage.getItem("mailer_from_name") || "";
+  }
   try {
     const auth = await fetch("/api/auth/status").then((res) => res.json());
     const gmail = auth.email;
@@ -132,6 +136,12 @@ cfgCancelBtn.addEventListener("click", () => {
 cfgDelayInput.addEventListener("change", () => {
   localStorage.setItem("mailer_delay", cfgDelayInput.value || "750");
 });
+
+if (fromNameInput) {
+  fromNameInput.addEventListener("input", () => {
+    localStorage.setItem("mailer_from_name", fromNameInput.value);
+  });
+}
 
 googleConnectBtn.addEventListener("click", () => { window.location.assign("/api/auth/google/login"); });
 googleDisconnectBtn.addEventListener("click", async () => {
@@ -725,6 +735,7 @@ form.addEventListener("submit", async (e) => {
         recipients: [rec],
         subject,
         message,
+        fromName: fromNameInput ? fromNameInput.value.trim() : "",
         attachment: singleAttachment,
         dryRun: !isBroadcast
       };

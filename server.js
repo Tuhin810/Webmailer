@@ -152,11 +152,13 @@ async function handleSend(request, response) {
   const data = await readBody(request);
   const subject = text(data.subject, "Subject");
   const message = text(data.message, "Message");
+  const rawFromName = typeof data.fromName === "string" ? data.fromName.trim() : "";
   const recipients = data.recipients;
   const delayMs = Math.max(100, Math.min(Number(data.delay_ms) || 750, 5000));
   if (!Array.isArray(recipients) || !recipients.length) throw new Error("Add at least one recipient email address.");
   if (data.dryRun) return sendJson(response, 200, { dryRun: true, results: recipients.map((r) => ({ email: r.email, status: "dry-run-success" })) });
   const { token, session } = await accessToken(request);
+  const fromHeader = rawFromName ? `"${safeHeader(rawFromName).replace(/"/g, "'")}" <${safeHeader(session.email)}>` : safeHeader(session.email);
   const results = [];
   for (const recipient of recipients) {
     try {
@@ -168,7 +170,9 @@ async function handleSend(request, response) {
           name: personalize(recipientAttachment.name || "Attachment", recipient)
         };
       }
-      const raw = makeRawEmail({ from: session.email, to: recipient.email, subject: personalize(subject, recipient), message: personalize(message, recipient), attachment: recipientAttachment });
+      const recipientName = recipient.name ? personalize(recipient.name, recipient).trim() : "";
+      const toHeader = recipientName ? `"${safeHeader(recipientName).replace(/"/g, "'")}" <${safeHeader(recipient.email)}>` : safeHeader(recipient.email);
+      const raw = makeRawEmail({ from: fromHeader, to: toHeader, subject: personalize(subject, recipient), message: personalize(message, recipient), attachment: recipientAttachment });
       const sent = await fetch("https://gmail.googleapis.com/gmail/v1/users/me/messages/send", { method: "POST", headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" }, body: JSON.stringify({ raw }) });
       if (!sent.ok) { const error = await sent.json(); throw new Error(error.error?.message || "Gmail rejected this message."); }
       results.push({ email: recipient.email, status: "sent" });

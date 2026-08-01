@@ -33,42 +33,46 @@
         <!-- FROM ROW -->
         <div class="field-row from-row">
           <span class="field-label">From</span>
-          <div class="profile-badge-wrapper">
-            <button type="button" id="profile-badge-btn" class="profile-badge" aria-expanded="false"
-              title="Connect or disconnect your Google account">
-              <span class="avatar-circle" id="avatar-initials">JM</span>
-              <span class="profile-name" id="profile-display-name">John Miller (me)</span>
-              <svg class="chevron-icon" width="12" height="12" viewBox="0 0 12 12" fill="none">
-                <path d="M2.5 4.5L6 8L9.5 4.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"
-                  stroke-linejoin="round" />
-              </svg>
-            </button>
+          <div class="from-fields-wrapper" style="display: flex; align-items: center; gap: 0.75rem; flex: 1; flex-wrap: wrap;">
+            <div class="profile-badge-wrapper">
+              <button type="button" id="profile-badge-btn" class="profile-badge" aria-expanded="false"
+                title="Connect or disconnect your Google account">
+                <span class="avatar-circle" id="avatar-initials">JM</span>
+                <span class="profile-name" id="profile-display-name">John Miller (me)</span>
+                <svg class="chevron-icon" width="12" height="12" viewBox="0 0 12 12" fill="none">
+                  <path d="M2.5 4.5L6 8L9.5 4.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"
+                    stroke-linejoin="round" />
+                </svg>
+              </button>
 
-            <!-- Credentials Popover Modal -->
-            <div id="config-modal" class="popover-modal hidden" aria-hidden="true">
-              <div class="popover-header">
-                <h3>Google account</h3>
-                <p class="popover-subtitle">Sign in with Google to send from your Gmail account.</p>
-              </div>
-              <div class="popover-body">
-                <p id="google-account-status" class="input-hint">Checking Google connection…</p>
-                <div class="input-row-dual">
-                  <label class="input-group">
-                    <span>Delay (ms)</span>
-                    <input type="number" id="cfg-delay" value="750" min="100" max="5000" step="50" />
-                  </label>
-                  <label class="input-group checkbox-label">
-                    <input type="checkbox" id="cfg-dry-run" />
-                    <span>Dry Run Mode</span>
-                  </label>
+              <!-- Credentials Popover Modal -->
+              <div id="config-modal" class="popover-modal hidden" aria-hidden="true">
+                <div class="popover-header">
+                  <h3>Google account</h3>
+                  <p class="popover-subtitle">Sign in with Google to send from your Gmail account.</p>
+                </div>
+                <div class="popover-body">
+                  <p id="google-account-status" class="input-hint">Checking Google connection…</p>
+                  <div class="input-row-dual">
+                    <label class="input-group">
+                      <span>Delay (ms)</span>
+                      <input type="number" id="cfg-delay" value="750" min="100" max="5000" step="50" />
+                    </label>
+                    <label class="input-group checkbox-label">
+                      <input type="checkbox" id="cfg-dry-run" />
+                      <span>Dry Run Mode</span>
+                    </label>
+                  </div>
+                </div>
+                <div class="popover-footer">
+                  <button type="button" id="cfg-cancel-btn" class="btn-secondary">Cancel</button>
+                  <button type="button" id="google-connect-btn" class="btn-primary">Sign in with Google</button>
+                  <button type="button" id="google-disconnect-btn" class="btn-secondary hidden">Disconnect</button>
                 </div>
               </div>
-              <div class="popover-footer">
-                <button type="button" id="cfg-cancel-btn" class="btn-secondary">Cancel</button>
-                <button type="button" id="google-connect-btn" class="btn-primary">Sign in with Google</button>
-                <button type="button" id="google-disconnect-btn" class="btn-secondary hidden">Disconnect</button>
-              </div>
             </div>
+
+            <input type="text" id="from-name-input" class="from-name-input" placeholder="Sender Name e.g. Tracey Ochoa" title="Sender Name shown to recipients in their inbox" style="height: 36px; padding: 0 12px; border: 1px solid #e5e7eb; border-radius: 8px; font-size: 0.88rem; background: #ffffff; color: #111827; min-width: 220px; outline: none; transition: border-color 0.2s ease;" />
           </div>
         </div>
 
