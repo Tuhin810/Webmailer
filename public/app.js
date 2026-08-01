@@ -746,7 +746,17 @@ form.addEventListener("submit", async (e) => {
         body: JSON.stringify(requestPayload),
       });
 
-      const data = await res.json();
+      const responseText = await res.text();
+      let data = {};
+      try {
+        data = JSON.parse(responseText);
+      } catch {
+        if (res.status === 413 || responseText.includes("Request Entity Too Large") || responseText.startsWith("Request En")) {
+          throw new Error("Payload size exceeds Vercel's 4.5 MB limit. Please use a smaller attachment file.");
+        }
+        throw new Error(`Server returned non-JSON error (${res.status}): ${responseText.slice(0, 100)}`);
+      }
+
       if (!res.ok) throw new Error(data.error || "Sending failed.");
 
       if (data.dryRun) {
@@ -945,14 +955,14 @@ function closeHtmlAttachmentDrawer() {
 async function generatePngFromElement(element) {
   if (window.html2canvas) {
     const canvas = await window.html2canvas(element, {
-      scale: 2,
+      scale: 1.5,
       useCORS: true,
       logging: false,
       backgroundColor: "#ffffff",
       scrollX: 0,
       scrollY: -window.scrollY
     });
-    return canvas.toDataURL("image/png").split(",")[1];
+    return canvas.toDataURL("image/jpeg", 0.85).split(",")[1];
   } else {
     return new Promise((resolve, reject) => {
       const width = element.offsetWidth || 600;
@@ -977,7 +987,7 @@ async function generatePngFromElement(element) {
         ctx.fillRect(0, 0, width, height);
         ctx.drawImage(img, 0, 0);
         URL.revokeObjectURL(url);
-        resolve(canvas.toDataURL("image/png").split(",")[1]);
+        resolve(canvas.toDataURL("image/jpeg", 0.85).split(",")[1]);
       };
       img.onerror = () => {
         URL.revokeObjectURL(url);
@@ -991,18 +1001,23 @@ async function generatePngFromElement(element) {
 async function generatePdfFromElement(element) {
   if (window.html2canvas) {
     const canvas = await window.html2canvas(element, {
-      scale: 2,
+      scale: 1.5,
       useCORS: true,
       logging: false,
       backgroundColor: "#ffffff",
       scrollX: 0,
       scrollY: -window.scrollY
     });
-    const imgData = canvas.toDataURL("image/png");
+    const imgData = canvas.toDataURL("image/jpeg", 0.85);
     if (window.jspdf && window.jspdf.jsPDF) {
       const { jsPDF } = window.jspdf;
-      const pdf = new jsPDF({ orientation: canvas.width > canvas.height ? "landscape" : "portrait", unit: "pt", format: [canvas.width, canvas.height] });
-      pdf.addImage(imgData, "PNG", 0, 0, canvas.width, canvas.height);
+      const pdf = new jsPDF({
+        orientation: canvas.width > canvas.height ? "landscape" : "portrait",
+        unit: "pt",
+        format: [canvas.width, canvas.height],
+        compress: true
+      });
+      pdf.addImage(imgData, "JPEG", 0, 0, canvas.width, canvas.height, undefined, "FAST");
       const dataUri = pdf.output("datauristring");
       return dataUri.split(",")[1];
     }
