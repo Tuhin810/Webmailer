@@ -429,8 +429,8 @@
         <div class="drawer-title-group">
           <span class="drawer-icon" style="color: #ec4899; background: rgba(236, 72, 153, 0.15);">⚡</span>
           <div>
-            <h3>Convert HTML to Attachment</h3>
-            <span class="drawer-header-subtitle">Convert HTML code to PDF, Image, or DOCX attachment</span>
+            <h3>Dynamic HTML Attachment</h3>
+            <span class="drawer-header-subtitle">Converts dynamically to PDF, Image, or DOCX for each recipient during send</span>
           </div>
         </div>
         <button type="button" id="close-html-attachment-btn" class="drawer-close-btn" onclick="closeHtmlAttachmentDrawer()" title="Close side panel">✕</button>
@@ -442,7 +442,7 @@
           <span class="filename-banner-label">Output Filename:</span>
           <span class="filename-banner-value" id="attachment-filename-preview">Subject_Name.pdf</span>
         </div>
-        <span class="filename-banner-hint">(Auto-synced with Email Subject)</span>
+        <span class="filename-banner-hint">(Auto-synced with Email Subject, supports {name}, {email})</span>
       </div>
 
       <!-- Format Selection Control -->
@@ -466,10 +466,12 @@
 
       <!-- Quick Actions Bar -->
       <div class="code-quick-tags">
-        <span class="quick-tags-title">Quick Content:</span>
+        <span class="quick-tags-title">Quick Content & Variables:</span>
         <button type="button" class="tag-insert-btn tag-highlight-btn" onclick="useComposerHtmlForAttachment()">Use Email Body HTML</button>
         <button type="button" class="tag-insert-btn" onclick="loadSampleInvoiceHtml()">Sample Invoice</button>
         <button type="button" class="tag-insert-btn" onclick="loadSampleCertificateHtml()">Sample Certificate</button>
+        <button type="button" class="tag-insert-btn" onclick="insertTagIntoAttachmentHtml('{name}')">{name}</button>
+        <button type="button" class="tag-insert-btn" onclick="insertTagIntoAttachmentHtml('{email}')">{email}</button>
         <button type="button" class="tag-insert-btn" onclick="insertTagIntoAttachmentHtml('<h1>Title</h1>')">&lt;h1&gt;</button>
         <button type="button" class="tag-insert-btn" onclick="insertTagIntoAttachmentHtml('<p>Text</p>')">&lt;p&gt;</button>
       </div>
@@ -477,7 +479,7 @@
       <!-- Split HTML Editor & Live Visual Preview -->
       <div class="attachment-editor-split">
         <div class="split-editor-pane">
-          <label class="pane-label">&lt;/&gt; HTML Source Code</label>
+          <label class="pane-label">&lt;/&gt; HTML Source Code (supports {name}, {email})</label>
           <textarea id="attachment-html-input" class="drawer-html-textarea" placeholder="Paste your HTML code here... e.g. <div style='padding:24px; font-family:sans-serif;'><h1>Monthly Statement</h1><p>Dear {name}, here is your summary...</p></div>"></textarea>
         </div>
 
@@ -494,7 +496,7 @@
       <div class="drawer-footer-actions">
         <button type="button" class="btn-secondary" onclick="closeHtmlAttachmentDrawer()">Cancel</button>
         <button type="button" class="btn-primary btn-generate-attachment" id="generate-attachment-btn" onclick="convertAndAttachHtml()">
-          <span>Convert & Attach</span>
+          <span>Save & Attach Dynamic</span>
           <span class="format-badge-pill" id="generate-btn-format-pill">PDF</span>
         </button>
       </div>

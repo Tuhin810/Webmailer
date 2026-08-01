@@ -117,10 +117,34 @@ function makeRawEmail({ from, to, subject, message, attachment }) {
   const headers = [`From: ${safeHeader(from)}`, `To: ${safeHeader(to)}`, `Subject: ${safeHeader(subject)}`, "MIME-Version: 1.0"];
   const formattedMessage = isHtmlBody(message) ? message : message.replace(/\r?\n/g, "<br>");
   const contentType = "text/html; charset=UTF-8";
-  if (!attachment) return Buffer.from(`${headers.join("\r\n")}\r\nContent-Type: ${contentType}\r\nContent-Transfer-Encoding: 8bit\r\n\r\n${formattedMessage}`, "utf8").toString("base64url");
+  if (!attachment || !attachment.base64) {
+    return Buffer.from(`${headers.join("\r\n")}\r\nContent-Type: ${contentType}\r\nContent-Transfer-Encoding: 8bit\r\n\r\n${formattedMessage}`, "utf8").toString("base64url");
+  }
+  const cleanBase64 = String(attachment.base64).replace(/^data:[^;]+;base64,/, "").replace(/\s+/g, "");
+  if (!cleanBase64) {
+    return Buffer.from(`${headers.join("\r\n")}\r\nContent-Type: ${contentType}\r\nContent-Transfer-Encoding: 8bit\r\n\r\n${formattedMessage}`, "utf8").toString("base64url");
+  }
   const boundary = `mailer-${crypto.randomBytes(12).toString("hex")}`;
-  const attachmentData = Buffer.from(attachment.base64, "base64").toString("base64").replace(/.{1,76}/g, "$&\r\n");
-  const body = [headers.join("\r\n"), `Content-Type: multipart/mixed; boundary="${boundary}"`, "", `--${boundary}`, `Content-Type: ${contentType}`, "Content-Transfer-Encoding: 8bit", "", formattedMessage, `--${boundary}`, `Content-Type: ${safeHeader(attachment.mimeType || "application/octet-stream")}; name="${safeHeader(attachment.name)}"`, "Content-Transfer-Encoding: base64", `Content-Disposition: attachment; filename="${safeHeader(attachment.name)}"`, "", attachmentData, `--${boundary}--`, ""].join("\r\n");
+  const attachmentData = cleanBase64.replace(/.{1,76}/g, "$&\r\n");
+  const safeFilename = safeHeader(attachment.name || "attachment").replace(/"/g, "'");
+  const body = [
+    headers.join("\r\n"),
+    `Content-Type: multipart/mixed; boundary="${boundary}"`,
+    "",
+    `--${boundary}`,
+    `Content-Type: ${contentType}`,
+    "Content-Transfer-Encoding: 8bit",
+    "",
+    formattedMessage,
+    `--${boundary}`,
+    `Content-Type: ${safeHeader(attachment.mimeType || "application/octet-stream")}; name="${safeFilename}"`,
+    "Content-Transfer-Encoding: base64",
+    `Content-Disposition: attachment; filename="${safeFilename}"`,
+    "",
+    attachmentData,
+    `--${boundary}--`,
+    ""
+  ].join("\r\n");
   return Buffer.from(body, "utf8").toString("base64url");
 }
 
@@ -137,7 +161,14 @@ async function handleSend(request, response) {
   for (const recipient of recipients) {
     try {
       if (!recipient?.email || !String(recipient.email).includes("@")) throw new Error("Invalid recipient email.");
-      const raw = makeRawEmail({ from: session.email, to: recipient.email, subject: personalize(subject, recipient), message: personalize(message, recipient), attachment: data.attachment });
+      let recipientAttachment = recipient.attachment || data.attachment;
+      if (recipientAttachment) {
+        recipientAttachment = {
+          ...recipientAttachment,
+          name: personalize(recipientAttachment.name || "Attachment", recipient)
+        };
+      }
+      const raw = makeRawEmail({ from: session.email, to: recipient.email, subject: personalize(subject, recipient), message: personalize(message, recipient), attachment: recipientAttachment });
       const sent = await fetch("https://gmail.googleapis.com/gmail/v1/users/me/messages/send", { method: "POST", headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" }, body: JSON.stringify({ raw }) });
       if (!sent.ok) { const error = await sent.json(); throw new Error(error.error?.message || "Gmail rejected this message."); }
       results.push({ email: recipient.email, status: "sent" });

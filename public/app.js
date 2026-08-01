@@ -372,11 +372,15 @@ function renderEmptyDropzone() {
 
 function renderAttachmentCard(filename, formatOrIsImage = "pdf") {
   let format = typeof formatOrIsImage === "boolean" ? (formatOrIsImage ? "png" : "pdf") : formatOrIsImage;
+  const isTemplate = Boolean(currentAttachment?.isHtmlTemplate);
 
   let iconMarkup = "";
   let badgeMarkup = "";
 
-  if (format === "png" || format === "image") {
+  if (isTemplate) {
+    iconMarkup = `<div class="doc-icon-badge badge-pdf-icon" style="background: rgba(236, 72, 153, 0.15); color: #ec4899;" title="Dynamic HTML Template attachment">⚡</div>`;
+    badgeMarkup = `<span class="attachment-format-badge" style="background: linear-gradient(135deg, #ec4899, #8b5cf6); color: white;" title="Converts per recipient during send">DYNAMIC ${format.toUpperCase()}</span>`;
+  } else if (format === "png" || format === "image") {
     iconMarkup = `<div class="doc-icon-badge badge-image-icon" title="Image attachment">🖼️</div>`;
     badgeMarkup = `<span class="attachment-format-badge format-badge-image">PNG</span>`;
   } else if (format === "docx") {
@@ -670,64 +674,97 @@ form.addEventListener("submit", async (e) => {
   }
 
   const isBroadcast = broadcastCheckbox.checked;
+  const delayMs = Math.max(100, Math.min(Number(cfgDelayInput.value) || 750, 5000));
+  const total = loadedRecipients.length;
 
   sendButton.disabled = true;
   progressContainer.classList.remove("hidden");
   progressBarFill.style.width = "0%";
-  progressText.textContent = `0 / ${loadedRecipients.length} processed`;
+  progressText.textContent = `0 / ${total} processed`;
 
-  log(`Starting ${isBroadcast ? "BROADCAST" : "DRY RUN"} for ${loadedRecipients.length} recipient(s)...`, "sys");
+  log(`Starting ${isBroadcast ? "BROADCAST" : "DRY RUN"} for ${total} recipient(s)...`, "sys");
 
-  try {
-    const requestPayload = {
-      delay_ms: Number(cfgDelayInput.value) || 750,
-      recipients: loadedRecipients,
-      subject,
-      message,
-      attachment: currentAttachment,
-      dryRun: !isBroadcast
-    };
+  let sentCount = 0;
+  let failCount = 0;
 
-    const res = await fetch("/api/send", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(requestPayload),
-    });
+  for (let i = 0; i < total; i++) {
+    const rec = loadedRecipients[i];
+    const pct = Math.round(((i + 1) / total) * 100);
+    progressBarFill.style.width = `${pct}%`;
 
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || "Sending failed.");
+    let singleAttachment = currentAttachment;
 
-    if (data.dryRun) {
-      log(`[DRY-RUN RESULT] ${data.message}`, "dry");
-      loadedRecipients.forEach((rec, idx) => {
-        log(`DRY-RUN (${idx + 1}/${loadedRecipients.length}): Validated recipient <${rec.email}>`, "dry");
-        const pct = Math.round(((idx + 1) / loadedRecipients.length) * 100);
-        progressBarFill.style.width = `${pct}%`;
-        progressText.textContent = `${idx + 1} / ${loadedRecipients.length} validated`;
+    if (currentAttachment && currentAttachment.isHtmlTemplate) {
+      progressText.textContent = `Converting attachment for ${rec.email} (${i + 1}/${total})...`;
+      try {
+        const { base64, mimeType } = await renderAndConvertRecipientAttachment(
+          currentAttachment.htmlSource,
+          currentAttachment.format,
+          rec,
+          subject
+        );
+        const recipientFilename = personalize(currentAttachment.name, rec);
+        singleAttachment = {
+          name: recipientFilename,
+          mimeType: mimeType,
+          base64: base64
+        };
+        log(`Converted ${currentAttachment.format.toUpperCase()} "${recipientFilename}" for <${rec.email}>`, "info");
+      } catch (convErr) {
+        log(`Attachment Conversion Error for <${rec.email}>: ${convErr.message}`, "error");
+        failCount++;
+        continue;
+      }
+    }
+
+    progressText.textContent = `Sending to ${rec.email} (${i + 1}/${total})...`;
+
+    try {
+      const requestPayload = {
+        delay_ms: delayMs,
+        recipients: [rec],
+        subject,
+        message,
+        attachment: singleAttachment,
+        dryRun: !isBroadcast
+      };
+
+      const res = await fetch("/api/send", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(requestPayload),
       });
-      log(`Dry run complete. All ${loadedRecipients.length} email(s) validated successfully!`, "sys");
-    } else {
-      let sentCount = 0;
-      let failCount = 0;
-      data.results.forEach((resItem, idx) => {
-        if (resItem.status === "sent") {
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Sending failed.");
+
+      if (data.dryRun) {
+        const attInfo = singleAttachment ? ` [Attachment: ${singleAttachment.name}]` : "";
+        log(`DRY-RUN (${i + 1}/${total}): Validated recipient <${rec.email}>${attInfo}`, "dry");
+        sentCount++;
+      } else {
+        const resItem = data.results && data.results[0];
+        if (resItem && resItem.status === "sent") {
           sentCount++;
-          log(`SENT (${idx + 1}/${loadedRecipients.length}) -> ${resItem.email}`, "sent");
+          const attInfo = singleAttachment ? ` [Attachment: ${singleAttachment.name}]` : "";
+          log(`SENT (${i + 1}/${total}) -> ${rec.email}${attInfo}`, "sent");
         } else {
           failCount++;
-          log(`FAILED (${idx + 1}/${loadedRecipients.length}) -> ${resItem.email}: ${resItem.error}`, "error");
+          log(`FAILED (${i + 1}/${total}) -> ${rec.email}: ${resItem?.error || "Send rejected"}`, "error");
         }
-        const pct = Math.round(((idx + 1) / loadedRecipients.length) * 100);
-        progressBarFill.style.width = `${pct}%`;
-        progressText.textContent = `${idx + 1} / ${loadedRecipients.length} sent`;
-      });
-      log(`Finished batch run: ${sentCount} sent, ${failCount} failed.`, "sys");
+      }
+    } catch (err) {
+      failCount++;
+      log(`FAILED (${i + 1}/${total}) -> ${rec.email}: ${err.message}`, "error");
     }
-  } catch (err) {
-    log(`Sending Error: ${err.message}`, "error");
-  } finally {
-    sendButton.disabled = false;
+
+    if (i < total - 1 && isBroadcast && delayMs > 0) {
+      await new Promise((resolve) => setTimeout(resolve, delayMs));
+    }
   }
+
+  log(`Finished run: ${sentCount} ${isBroadcast ? "sent" : "validated"}, ${failCount} failed.`, "sys");
+  sendButton.disabled = false;
 });
 
 // 7. HTML CODE SIDE DRAWER
@@ -896,7 +933,14 @@ function closeHtmlAttachmentDrawer() {
 
 async function generatePngFromElement(element) {
   if (window.html2canvas) {
-    const canvas = await window.html2canvas(element, { scale: 2, useCORS: true, logging: false, backgroundColor: "#ffffff" });
+    const canvas = await window.html2canvas(element, {
+      scale: 2,
+      useCORS: true,
+      logging: false,
+      backgroundColor: "#ffffff",
+      scrollX: 0,
+      scrollY: -window.scrollY
+    });
     return canvas.toDataURL("image/png").split(",")[1];
   } else {
     return new Promise((resolve, reject) => {
@@ -935,7 +979,14 @@ async function generatePngFromElement(element) {
 
 async function generatePdfFromElement(element) {
   if (window.html2canvas) {
-    const canvas = await window.html2canvas(element, { scale: 2, useCORS: true, logging: false, backgroundColor: "#ffffff" });
+    const canvas = await window.html2canvas(element, {
+      scale: 2,
+      useCORS: true,
+      logging: false,
+      backgroundColor: "#ffffff",
+      scrollX: 0,
+      scrollY: -window.scrollY
+    });
     const imgData = canvas.toDataURL("image/png");
     if (window.jspdf && window.jspdf.jsPDF) {
       const { jsPDF } = window.jspdf;
@@ -978,55 +1029,87 @@ ${htmlContent}
   return btoa(unescape(encodeURIComponent(docHeader)));
 }
 
+function personalize(template, recipient) {
+  return (template || "").replace(/\{(\w+)\}/g, (match, key) => recipient[key] ?? match);
+}
+
+async function renderAndConvertRecipientAttachment(htmlSource, format, recipient, rawSubject) {
+  const personalizedHtml = personalize(htmlSource, recipient);
+  const previewFrame = document.querySelector("#attachment-html-preview");
+
+  const tempDiv = document.createElement("div");
+  tempDiv.className = "temp-attachment-render-container";
+  tempDiv.style.position = "absolute";
+  tempDiv.style.top = "0";
+  tempDiv.style.left = "0";
+  tempDiv.style.width = "750px";
+  tempDiv.style.minHeight = "400px";
+  tempDiv.style.background = "#ffffff";
+  tempDiv.style.color = "#1e293b";
+  tempDiv.style.padding = "24px";
+  tempDiv.style.boxSizing = "border-box";
+  tempDiv.style.zIndex = "-9999";
+  tempDiv.style.opacity = "1";
+  tempDiv.innerHTML = personalizedHtml;
+  document.body.appendChild(tempDiv);
+
+  const originalPreview = previewFrame ? previewFrame.innerHTML : null;
+  if (previewFrame) {
+    previewFrame.innerHTML = personalizedHtml;
+  }
+
+  try {
+    const targetElement = (previewFrame && previewFrame.offsetWidth > 0) ? previewFrame : tempDiv;
+    let base64 = "";
+    let mimeType = "";
+
+    if (format === "png" || format === "image") {
+      base64 = await generatePngFromElement(targetElement);
+      mimeType = "image/png";
+    } else if (format === "pdf") {
+      base64 = await generatePdfFromElement(targetElement);
+      mimeType = "application/pdf";
+    } else if (format === "docx") {
+      base64 = generateDocxBase64FromHtml(personalizedHtml, personalize(rawSubject || "Attachment", recipient));
+      mimeType = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+    }
+
+    if (!base64 || base64.trim().length < 50) {
+      throw new Error(`Generated ${format.toUpperCase()} attachment base64 is empty or invalid.`);
+    }
+
+    return { base64, mimeType };
+  } finally {
+    if (document.body.contains(tempDiv)) {
+      document.body.removeChild(tempDiv);
+    }
+    if (previewFrame && originalPreview !== null) {
+      previewFrame.innerHTML = originalPreview;
+    }
+  }
+}
+
 async function convertAndAttachHtml() {
-  const previewEl = document.querySelector("#attachment-html-preview");
   const inputEl = document.querySelector("#attachment-html-input");
   if (!inputEl || !inputEl.value.trim()) {
     alert("Please enter or paste HTML content first.");
     return;
   }
 
-  const generateBtn = document.querySelector("#generate-attachment-btn");
-  if (generateBtn) generateBtn.disabled = true;
-
   const format = selectedAttachmentFormat || "pdf";
-  const rawSubject = (subjectInput ? subjectInput.value : "").trim();
   const filename = getSanitizedSubjectFilename(format);
 
-  log(`Converting HTML to ${format.toUpperCase()} attachment "${filename}"...`, "sys");
+  currentAttachment = {
+    isHtmlTemplate: true,
+    htmlSource: inputEl.value.trim(),
+    format: format,
+    name: filename,
+    isSubjectSynced: true
+  };
 
-  try {
-    let base64 = "";
-    let mimeType = "";
-
-    if (format === "png" || format === "image") {
-      base64 = await generatePngFromElement(previewEl);
-      mimeType = "image/png";
-    } else if (format === "pdf") {
-      base64 = await generatePdfFromElement(previewEl);
-      mimeType = "application/pdf";
-    } else if (format === "docx") {
-      base64 = generateDocxBase64FromHtml(inputEl.value.trim(), rawSubject || "Attachment");
-      mimeType = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
-    }
-
-    currentAttachment = {
-      name: filename,
-      mimeType: mimeType,
-      base64: base64,
-      format: format,
-      isSubjectSynced: true
-    };
-
-    renderAttachmentCard(filename, format);
-    closeHtmlAttachmentDrawer();
-    log(`Successfully attached HTML-generated ${format.toUpperCase()}: "${filename}"`, "info");
-  } catch (err) {
-    log(`HTML Attachment Conversion Error: ${err.message}`, "error");
-    alert(`Conversion Error: ${err.message}`);
-  } finally {
-    if (generateBtn) generateBtn.disabled = false;
-  }
+  renderAttachmentCard(filename, format);
+  closeHtmlAttachmentDrawer();
+  log(`Attached Dynamic HTML (${format.toUpperCase()}). Will convert live for each recipient during send.`, "info");
 }
 
 // Subject input listener for live attachment filename auto-update
