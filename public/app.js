@@ -192,18 +192,24 @@ async function loadConfig() {
   }
 }
 
-profileBadgeBtn.addEventListener("click", (e) => {
-  e.stopPropagation();
-  configModal.classList.toggle("hidden");
-});
+if (profileBadgeBtn) {
+  profileBadgeBtn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    if (configModal) configModal.classList.toggle("hidden");
+  });
+}
 
-cfgCancelBtn.addEventListener("click", () => {
-  configModal.classList.add("hidden");
-});
+if (cfgCancelBtn) {
+  cfgCancelBtn.addEventListener("click", () => {
+    if (configModal) configModal.classList.add("hidden");
+  });
+}
 
-cfgDelayInput.addEventListener("change", () => {
-  localStorage.setItem("mailer_delay", cfgDelayInput.value || "750");
-});
+if (cfgDelayInput) {
+  cfgDelayInput.addEventListener("change", () => {
+    localStorage.setItem("mailer_delay", cfgDelayInput.value || "750");
+  });
+}
 
 if (fromNameInput) {
   fromNameInput.addEventListener("input", () => {
@@ -211,21 +217,56 @@ if (fromNameInput) {
   });
 }
 
-googleConnectBtn.addEventListener("click", () => { window.location.assign("/api/auth/google/login"); });
-googleDisconnectBtn.addEventListener("click", async () => {
-  await fetch("/api/auth/logout", { method: "POST" });
-  configModal.classList.add("hidden");
-  await loadConfig();
-});
+if (googleConnectBtn) {
+  googleConnectBtn.addEventListener("click", () => { window.location.assign("/api/auth/google/login"); });
+}
+
+if (googleDisconnectBtn) {
+  googleDisconnectBtn.addEventListener("click", async () => {
+    await fetch("/api/auth/logout", { method: "POST" });
+    if (configModal) configModal.classList.add("hidden");
+    await loadConfig();
+  });
+}
 
 document.addEventListener("click", (e) => {
-  if (!configModal.contains(e.target) && e.target !== profileBadgeBtn && !profileBadgeBtn.contains(e.target)) {
-    configModal.classList.add("hidden");
+  if (configModal && profileBadgeBtn) {
+    if (!configModal.contains(e.target) && e.target !== profileBadgeBtn && !profileBadgeBtn.contains(e.target)) {
+      configModal.classList.add("hidden");
+    }
   }
-  if (!variableMenu.contains(e.target) && e.target !== variableTriggerBtn && !variableTriggerBtn.contains(e.target)) {
-    variableMenu.classList.add("hidden");
+  if (variableMenu && variableTriggerBtn) {
+    if (!variableMenu.contains(e.target) && e.target !== variableTriggerBtn && !variableTriggerBtn.contains(e.target)) {
+      variableMenu.classList.add("hidden");
+    }
   }
 });
+
+// HELPER: DERIVE CLEAN NAME FROM EMAIL USERNAME IF MISSING
+function deriveNameFromEmail(email) {
+  if (!email || typeof email !== "string") return "";
+  const username = email.split("@")[0] || "";
+
+  // Replace dots, underscores, hyphens, pluses with spaces and strip trailing numbers
+  let cleaned = username
+    .replace(/[._\-+]+/g, " ")
+    .replace(/\d+$/g, "")
+    .trim();
+
+  if (!cleaned) cleaned = username;
+
+  // Capitalize each word properly
+  return cleaned
+    .split(/\s+/)
+    .map((word) => {
+      if (!word) return "";
+      const cleanWord = word.replace(/[^a-zA-Z]/g, "");
+      if (!cleanWord) return word;
+      return cleanWord.charAt(0).toUpperCase() + cleanWord.slice(1).toLowerCase();
+    })
+    .filter(Boolean)
+    .join(" ");
+}
 
 // 2. CSV PARSING & RECIPIENT CHIPS
 function parseCsv(csvText) {
@@ -250,10 +291,12 @@ function parseCsv(csvText) {
   if (emailIdx === -1) throw new Error("CSV file must contain an 'email' column header.");
 
   return rows
-    .map((row) => ({
-      email: row[emailIdx] || "",
-      name: nameIdx !== -1 ? row[nameIdx] || "" : "",
-    }))
+    .map((row) => {
+      const email = (row[emailIdx] || "").trim();
+      const rawName = nameIdx !== -1 ? (row[nameIdx] || "").trim() : "";
+      const name = rawName || deriveNameFromEmail(email);
+      return { email, name };
+    })
     .filter((r) => r.email && r.email.includes("@"));
 }
 
@@ -274,6 +317,330 @@ csvInput.addEventListener("change", async (e) => {
     alert(`CSV Error: ${err.message}`);
   }
 });
+
+// 2b. MANUAL RECIPIENTS MODAL & FORMULA PARSING LOGIC
+function parseManualText(rawText, formulaMode = "auto", customDelimiter = ";") {
+  if (!rawText || !rawText.trim()) return [];
+
+  const lines = rawText.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+  const emailRegex = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/;
+  const bracketRegex = /^(.*?)\s*<([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})>$/;
+
+  const results = [];
+
+  for (const line of lines) {
+    let name = "";
+    let email = "";
+
+    if (formulaMode === "auto") {
+      const bracketMatch = line.match(bracketRegex);
+      if (bracketMatch) {
+        name = bracketMatch[1].replace(/["']/g, "").trim();
+        email = bracketMatch[2].trim();
+      } else {
+        const delims = [",", "\t", ";", "|"];
+        let foundDelim = null;
+        for (const d of delims) {
+          if (line.includes(d)) {
+            foundDelim = d;
+            break;
+          }
+        }
+
+        if (foundDelim) {
+          const parts = line.split(foundDelim).map((p) => p.replace(/["']/g, "").trim());
+          const emailIdx = parts.findIndex((p) => emailRegex.test(p));
+          if (emailIdx !== -1) {
+            const extracted = parts[emailIdx].match(emailRegex);
+            email = extracted ? extracted[0] : parts[emailIdx];
+            const otherParts = parts.filter((_, idx) => idx !== emailIdx);
+            name = otherParts.join(" ").trim();
+          }
+        } else {
+          const match = line.match(emailRegex);
+          if (match) {
+            email = match[0];
+            const rem = line.replace(email, "").replace(/["'<>(),]/g, "").trim();
+            if (rem) name = rem;
+          }
+        }
+      }
+    } else if (formulaMode === "brackets") {
+      const match = line.match(bracketRegex) || line.match(/^(.*?)\s*<?([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})>?$/);
+      if (match) {
+        name = (match[1] || "").replace(/["']/g, "").trim();
+        email = (match[2] || "").trim();
+      }
+    } else if (formulaMode === "name_email") {
+      const delim = line.includes(",") ? "," : line.includes("\t") ? "\t" : ";";
+      const parts = line.split(delim).map((p) => p.replace(/["']/g, "").trim());
+      if (parts.length >= 2) {
+        name = parts[0];
+        const match = parts[1].match(emailRegex);
+        email = match ? match[0] : parts[1];
+      } else if (parts.length === 1) {
+        const match = parts[0].match(emailRegex);
+        if (match) email = match[0];
+      }
+    } else if (formulaMode === "email_name") {
+      const delim = line.includes(",") ? "," : line.includes("\t") ? "\t" : ";";
+      const parts = line.split(delim).map((p) => p.replace(/["']/g, "").trim());
+      if (parts.length >= 2) {
+        const match = parts[0].match(emailRegex);
+        email = match ? match[0] : parts[0];
+        name = parts[1];
+      } else if (parts.length === 1) {
+        const match = parts[0].match(emailRegex);
+        if (match) email = match[0];
+      }
+    } else if (formulaMode === "email_only") {
+      const match = line.match(emailRegex);
+      if (match) {
+        email = match[0];
+      }
+    } else if (formulaMode === "custom") {
+      const delim = customDelimiter || ";";
+      const parts = line.split(delim).map((p) => p.replace(/["']/g, "").trim());
+      const emailIdx = parts.findIndex((p) => emailRegex.test(p));
+      if (emailIdx !== -1) {
+        const match = parts[emailIdx].match(emailRegex);
+        email = match ? match[0] : parts[emailIdx];
+        name = parts.filter((_, i) => i !== emailIdx).join(" ").trim();
+      }
+    }
+
+    if (email && emailRegex.test(email)) {
+      const finalName = (name && name.trim()) ? name.trim() : deriveNameFromEmail(email);
+      results.push({ name: finalName, email: email.toLowerCase() });
+    }
+  }
+
+  return results;
+}
+
+// DOM Queries for Manual Modal
+const openManualBtn = document.querySelector("#open-manual-recipients-btn");
+const manualModal = document.querySelector("#manual-recipients-modal");
+const closeManualBtn = document.querySelector("#close-manual-modal-btn");
+const manualFormulaSelect = document.querySelector("#manual-formula-select");
+const customDelimiterGroup = document.querySelector("#custom-delimiter-group");
+const manualCustomDelimiter = document.querySelector("#manual-custom-delimiter");
+const manualBulkInput = document.querySelector("#manual-bulk-input");
+const manualParsedCountBadge = document.querySelector("#manual-parsed-count-badge");
+const manualPreviewList = document.querySelector("#manual-preview-list");
+
+const singleNameInput = document.querySelector("#single-name-input");
+const singleEmailInput = document.querySelector("#single-email-input");
+const addSingleEntryBtn = document.querySelector("#add-single-entry-btn");
+const singleParsedCountBadge = document.querySelector("#single-parsed-count-badge");
+const singlePreviewList = document.querySelector("#single-preview-list");
+
+const manualClearBtn = document.querySelector("#manual-clear-btn");
+const confirmManualImportBtn = document.querySelector("#confirm-manual-import-btn");
+
+let activeManualTab = "bulk";
+let singlePendingRecipients = [];
+
+function openManualModal() {
+  if (manualModal) {
+    manualModal.classList.remove("hidden");
+    manualModal.setAttribute("aria-hidden", "false");
+    updateManualPreview();
+  }
+}
+
+function closeManualModal() {
+  if (manualModal) {
+    manualModal.classList.add("hidden");
+    manualModal.setAttribute("aria-hidden", "true");
+  }
+}
+
+function updateManualPreview() {
+  if (activeManualTab === "bulk") {
+    const formula = manualFormulaSelect ? manualFormulaSelect.value : "auto";
+    const delim = manualCustomDelimiter ? manualCustomDelimiter.value : ";";
+    const raw = manualBulkInput ? manualBulkInput.value : "";
+    const parsed = parseManualText(raw, formula, delim);
+
+    if (manualParsedCountBadge) {
+      manualParsedCountBadge.textContent = `${parsed.length} Valid Recipient${parsed.length === 1 ? "" : "s"}`;
+    }
+
+    if (manualPreviewList) {
+      if (parsed.length === 0) {
+        manualPreviewList.innerHTML = `<div class="preview-empty">No valid recipients parsed yet. Paste text or enter data above.</div>`;
+      } else {
+        const previewRows = parsed.slice(0, 10).map((r) => `
+          <div class="preview-item-row">
+            <div class="preview-item-info">
+              <span class="preview-item-name">${r.name ? escapeHtml(r.name) : '<span style="color:#94a3b8; font-style:italic;">(No Name)</span>'}</span>
+              <span class="preview-item-email">&lt;${escapeHtml(r.email)}&gt;</span>
+            </div>
+            <span class="chip-avatar-icon" style="width:20px; height:20px; font-size:10px; background:#dbeafe; color:#1e40af; display:inline-flex; align-items:center; justify-content:center; border-radius:50%;">✓</span>
+          </div>
+        `).join("");
+
+        const moreText = parsed.length > 10 ? `<div style="font-size:0.78rem; text-align:center; color:#64748b; padding-top:4px;">+ ${parsed.length - 10} more recipient(s)</div>` : "";
+        manualPreviewList.innerHTML = previewRows + moreText;
+      }
+    }
+  } else {
+    if (singleParsedCountBadge) {
+      singleParsedCountBadge.textContent = `${singlePendingRecipients.length} Recipient${singlePendingRecipients.length === 1 ? "" : "s"}`;
+    }
+
+    if (singlePreviewList) {
+      if (singlePendingRecipients.length === 0) {
+        singlePreviewList.innerHTML = `<div class="preview-empty">No single entries added yet. Fill in Name & Email above.</div>`;
+      } else {
+        const previewRows = singlePendingRecipients.map((r, idx) => `
+          <div class="preview-item-row">
+            <div class="preview-item-info">
+              <span class="preview-item-name">${r.name ? escapeHtml(r.name) : '<span style="color:#94a3b8; font-style:italic;">(No Name)</span>'}</span>
+              <span class="preview-item-email">&lt;${escapeHtml(r.email)}&gt;</span>
+            </div>
+            <button type="button" class="chip-remove" onclick="removeSinglePending(${idx})" title="Remove">✕</button>
+          </div>
+        `).join("");
+        singlePreviewList.innerHTML = previewRows;
+      }
+    }
+  }
+}
+
+window.removeSinglePending = function(idx) {
+  singlePendingRecipients.splice(idx, 1);
+  updateManualPreview();
+};
+
+// Event Listeners for Manual Modal
+if (openManualBtn) {
+  openManualBtn.addEventListener("click", openManualModal);
+}
+if (closeManualBtn) {
+  closeManualBtn.addEventListener("click", closeManualModal);
+}
+
+if (manualModal) {
+  manualModal.addEventListener("click", (e) => {
+    if (e.target === manualModal) closeManualModal();
+  });
+}
+
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape" && manualModal && !manualModal.classList.contains("hidden")) {
+    closeManualModal();
+  }
+});
+
+// Modal Tab Switcher
+document.querySelectorAll(".modal-tab").forEach((tabBtn) => {
+  tabBtn.addEventListener("click", () => {
+    document.querySelectorAll(".modal-tab").forEach((b) => b.classList.remove("active"));
+    tabBtn.classList.add("active");
+    activeManualTab = tabBtn.getAttribute("data-tab");
+
+    if (activeManualTab === "bulk") {
+      document.querySelector("#tab-content-bulk").classList.remove("hidden");
+      document.querySelector("#tab-content-single").classList.add("hidden");
+    } else {
+      document.querySelector("#tab-content-bulk").classList.add("hidden");
+      document.querySelector("#tab-content-single").classList.remove("hidden");
+    }
+    updateManualPreview();
+  });
+});
+
+if (manualFormulaSelect) {
+  manualFormulaSelect.addEventListener("change", () => {
+    if (manualFormulaSelect.value === "custom") {
+      customDelimiterGroup.classList.remove("hidden");
+    } else {
+      customDelimiterGroup.classList.add("hidden");
+    }
+    updateManualPreview();
+  });
+}
+
+if (manualCustomDelimiter) {
+  manualCustomDelimiter.addEventListener("input", updateManualPreview);
+}
+if (manualBulkInput) {
+  manualBulkInput.addEventListener("input", updateManualPreview);
+}
+
+if (addSingleEntryBtn) {
+  addSingleEntryBtn.addEventListener("click", () => {
+    const name = (singleNameInput.value || "").trim();
+    const email = (singleEmailInput.value || "").trim();
+
+    if (!email || !email.includes("@")) {
+      alert("Please enter a valid email address.");
+      return;
+    }
+
+    const finalName = name || deriveNameFromEmail(email);
+    singlePendingRecipients.push({ name: finalName, email: email.toLowerCase() });
+    singleNameInput.value = "";
+    singleEmailInput.value = "";
+    singleNameInput.focus();
+    updateManualPreview();
+  });
+}
+
+if (manualClearBtn) {
+  manualClearBtn.addEventListener("click", () => {
+    if (activeManualTab === "bulk") {
+      if (manualBulkInput) manualBulkInput.value = "";
+    } else {
+      singlePendingRecipients = [];
+      if (singleNameInput) singleNameInput.value = "";
+      if (singleEmailInput) singleEmailInput.value = "";
+    }
+    updateManualPreview();
+  });
+}
+
+if (confirmManualImportBtn) {
+  confirmManualImportBtn.addEventListener("click", () => {
+    let newRecipients = [];
+    if (activeManualTab === "bulk") {
+      const formula = manualFormulaSelect ? manualFormulaSelect.value : "auto";
+      const delim = manualCustomDelimiter ? manualCustomDelimiter.value : ";";
+      const raw = manualBulkInput ? manualBulkInput.value : "";
+      newRecipients = parseManualText(raw, formula, delim);
+    } else {
+      newRecipients = [...singlePendingRecipients];
+    }
+
+    if (newRecipients.length === 0) {
+      alert("No valid recipients to import. Please enter emails first.");
+      return;
+    }
+
+    const importMode = document.querySelector('input[name="manual-import-mode"]:checked')?.value || "append";
+
+    if (importMode === "replace") {
+      loadedRecipients = newRecipients;
+    } else {
+      const existingEmails = new Set(loadedRecipients.map((r) => r.email.toLowerCase()));
+      for (const rec of newRecipients) {
+        if (!existingEmails.has(rec.email.toLowerCase())) {
+          loadedRecipients.push(rec);
+          existingEmails.add(rec.email.toLowerCase());
+        }
+      }
+    }
+
+    currentCsvFilename = "manual_recipients";
+    renderRecipientsUI(currentCsvFilename);
+    if (statRecipients) statRecipients.textContent = `Recipients: ${loadedRecipients.length}`;
+    log(`Imported ${newRecipients.length} recipient(s) manually (${importMode} mode). Total: ${loadedRecipients.length}`, "csv");
+    saveDraft();
+    closeManualModal();
+  });
+}
 
 function renderRecipientsUI(filename = "recipients.csv") {
   recipientsList.innerHTML = "";

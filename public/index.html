@@ -33,7 +33,8 @@
         <!-- FROM ROW -->
         <div class="field-row from-row">
           <span class="field-label">From</span>
-          <div class="from-fields-wrapper" style="display: flex; align-items: center; gap: 0.75rem; flex: 1; flex-wrap: wrap;">
+          <div class="from-fields-wrapper"
+            style="display: flex; align-items: center; gap: 0.75rem; flex: 1; flex-wrap: wrap;">
             <div class="profile-badge-wrapper">
               <button type="button" id="profile-badge-btn" class="profile-badge" aria-expanded="false"
                 title="Connect or disconnect your Google account">
@@ -72,7 +73,9 @@
               </div>
             </div>
 
-            <input type="text" id="from-name-input" class="from-name-input" placeholder="Sender Name e.g. Tracey Ochoa" title="Sender Name shown to recipients in their inbox" style="height: 36px; padding: 0 12px; border: 1px solid #e5e7eb; border-radius: 8px; font-size: 0.88rem; background: #ffffff; color: #111827; min-width: 220px; outline: none; transition: border-color 0.2s ease;" />
+            <input type="text" id="from-name-input" class="from-name-input" placeholder="Sender Name e.g. Tracey Ochoa"
+              title="Sender Name shown to recipients in their inbox"
+              style="height: 36px; padding: 0 12px; border: 1px solid #e5e7eb; border-radius: 8px; font-size: 0.88rem; background: #ffffff; color: #111827; min-width: 220px; outline: none; transition: border-color 0.2s ease;" />
           </div>
         </div>
 
@@ -93,6 +96,18 @@
                 <span class="chip-text">Choose CSV</span>
                 <input id="csv-input" type="file" accept=".csv,text/csv" hidden />
               </label>
+              <button type="button" id="open-manual-recipients-btn" class="custom-csv-btn manual-btn"
+                title="Add recipient emails and names manually or paste raw text using flexible formulas">
+                <span class="chip-avatar-icon">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                    <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                    <circle cx="8.5" cy="7" r="4"></circle>
+                    <line x1="20" y1="8" x2="20" y2="14"></line>
+                    <line x1="17" y1="11" x2="23" y2="11"></line>
+                  </svg>
+                </span>
+                <span class="chip-text">Add Manually</span>
+              </button>
             </div>
             <div id="recipients-list" class="recipients-list">
               <!-- Custom Recipient Chips or Placeholder -->
@@ -117,7 +132,8 @@
                 </svg>
                 <span>Visual Editor</span>
               </span>
-              <button type="button" id="open-html-drawer-btn" class="editor-tab btn-open-side-drawer" onclick="openHtmlCodeDrawer()" title="Open HTML Source Editor in Side Drawer">
+              <button type="button" id="open-html-drawer-btn" class="editor-tab btn-open-side-drawer"
+                onclick="openHtmlCodeDrawer()" title="Open HTML Source Editor in Side Drawer">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                   <polyline points="16 18 22 12 16 6"></polyline>
                   <polyline points="8 6 2 12 8 18"></polyline>
@@ -131,7 +147,8 @@
               <button type="button" class="format-btn" data-cmd="italic" title="Italic (Ctrl+I)"><i>I</i></button>
               <button type="button" class="format-btn" data-cmd="underline" title="Underline (Ctrl+U)"><u>U</u></button>
               <span class="toolbar-divider"></span>
-              <button type="button" class="format-btn" data-cmd="insertUnorderedList" title="Bullet List">• List</button>
+              <button type="button" class="format-btn" data-cmd="insertUnorderedList" title="Bullet List">•
+                List</button>
               <button type="button" class="format-btn" data-cmd="createLink" title="Insert Link">🔗 Link</button>
               <button type="button" class="format-btn" data-cmd="removeFormat" title="Clear Formatting">✕ Clear</button>
             </div>
@@ -140,7 +157,8 @@
           <div id="editor-wrapper" class="editor-wrapper">
             <!-- Visual Editable & Preview Container -->
             <div id="message-visual" class="message-visual" contenteditable="true"
-              data-placeholder="Write your message here... Use formatting or variables like {name} and {email} to personalize."></div>
+              data-placeholder="Write your message here... Use formatting or variables like {name} and {email} to personalize.">
+            </div>
 
             <!-- Hidden Synced Form Input -->
             <textarea id="message-input" class="message-textarea hidden" rows="7" required></textarea>
@@ -156,8 +174,10 @@
           <div id="attachments-container" class="attachments-container">
             <div class="attachment-options-grid" id="attachment-options-grid">
               <!-- Option 1: File Upload Box -->
-              <label class="attachment-upload-box" id="attachment-dropzone" title="Click or drag & drop a PDF, image, or document file">
-                <input id="attachment-file-input" type="file" accept="application/pdf,image/*,.pdf,.png,.jpg,.jpeg,.gif,.webp,.docx,.doc" hidden />
+              <label class="attachment-upload-box" id="attachment-dropzone"
+                title="Click or drag & drop a PDF, image, or document file">
+                <input id="attachment-file-input" type="file"
+                  accept="application/pdf,image/*,.pdf,.png,.jpg,.jpeg,.gif,.webp,.docx,.doc" hidden />
                 <div class="upload-box-icon">
                   <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
@@ -172,7 +192,8 @@
               </label>
 
               <!-- Option 2: Convert HTML to Attachment Box -->
-              <button type="button" class="attachment-html-convert-box" id="open-html-attachment-btn" onclick="openHtmlAttachmentDrawer()" title="Paste HTML and convert to PDF, Image, or DOCX attachment">
+              <button type="button" class="attachment-html-convert-box" id="open-html-attachment-btn"
+                onclick="openHtmlAttachmentDrawer()" title="Paste HTML and convert to PDF, Image, or DOCX attachment">
                 <div class="upload-box-icon html-convert-icon">
                   <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <polyline points="16 18 22 12 16 6"></polyline>
@@ -380,7 +401,8 @@
           </div>
           <p class="template-desc">Bold banner with highlight card and action button.</p>
           <div class="template-preview-box">
-            <div class="mini-header-gradient" style="background: linear-gradient(135deg, #059669, #10b981);">🚀 Launch Special for {name}</div>
+            <div class="mini-header-gradient" style="background: linear-gradient(135deg, #059669, #10b981);">🚀 Launch
+              Special for {name}</div>
             <div class="mini-text">Claim your exclusive trial discount for {email}...</div>
           </div>
           <button type="button" class="btn-use-template">Use Template</button>
@@ -398,7 +420,8 @@
           <span class="drawer-icon" style="color: #60a5fa; background: rgba(59, 130, 246, 0.15);">&lt;/&gt;</span>
           <h3>HTML Source Editor</h3>
         </div>
-        <button type="button" id="close-html-code-btn" class="drawer-close-btn" onclick="closeHtmlCodeDrawer()" title="Close side drawer">✕</button>
+        <button type="button" id="close-html-code-btn" class="drawer-close-btn" onclick="closeHtmlCodeDrawer()"
+          title="Close side drawer">✕</button>
       </div>
 
       <p class="drawer-subtitle">Edit the raw HTML source code. Changes update live in your visual email composer.</p>
@@ -407,7 +430,8 @@
         <button type="button" class="tag-insert-btn" onclick="insertTagIntoCode('<p></p>')">&lt;p&gt;</button>
         <button type="button" class="tag-insert-btn" onclick="insertTagIntoCode('<b></b>')">&lt;b&gt;</button>
         <button type="button" class="tag-insert-btn" onclick="insertTagIntoCode('<i></i>')">&lt;i&gt;</button>
-        <button type="button" class="tag-insert-btn" onclick="insertTagIntoCode('<a href=\'https://\'>Link</a>')">&lt;a&gt;</button>
+        <button type="button" class="tag-insert-btn"
+          onclick="insertTagIntoCode('<a href=\'https://\'>Link</a>')">&lt;a&gt;</button>
         <button type="button" class="tag-insert-btn" onclick="insertTagIntoCode('<h1></h1>')">&lt;h1&gt;</button>
         <button type="button" class="tag-insert-btn" onclick="insertTagIntoCode('<br>')">&lt;br&gt;</button>
         <button type="button" class="tag-insert-btn" onclick="insertTagIntoCode('{name}')">{name}</button>
@@ -415,7 +439,8 @@
       </div>
 
       <div class="drawer-code-wrapper">
-        <textarea id="drawer-html-input" class="drawer-html-textarea" placeholder="Write or paste your HTML code here... e.g. <p>Hello <b>{name}</b></p>"></textarea>
+        <textarea id="drawer-html-input" class="drawer-html-textarea"
+          placeholder="Write or paste your HTML code here... e.g. <p>Hello <b>{name}</b></p>"></textarea>
       </div>
 
       <div class="drawer-footer-actions">
@@ -434,10 +459,12 @@
           <span class="drawer-icon" style="color: #ec4899; background: rgba(236, 72, 153, 0.15);">⚡</span>
           <div>
             <h3>Dynamic HTML Attachment</h3>
-            <span class="drawer-header-subtitle">Converts dynamically to PDF, Image, or DOCX for each recipient during send</span>
+            <span class="drawer-header-subtitle">Converts dynamically to PDF, Image, or DOCX for each recipient during
+              send</span>
           </div>
         </div>
-        <button type="button" id="close-html-attachment-btn" class="drawer-close-btn" onclick="closeHtmlAttachmentDrawer()" title="Close side panel">✕</button>
+        <button type="button" id="close-html-attachment-btn" class="drawer-close-btn"
+          onclick="closeHtmlAttachmentDrawer()" title="Close side panel">✕</button>
       </div>
 
       <!-- Live Dynamic Filename Banner -->
@@ -453,11 +480,13 @@
       <div class="format-selection-group">
         <label class="format-option-label">Choose Attachment Format:</label>
         <div class="format-segmented-control">
-          <button type="button" class="format-segment-btn active" data-format="pdf" onclick="selectAttachmentFormat('pdf')">
+          <button type="button" class="format-segment-btn active" data-format="pdf"
+            onclick="selectAttachmentFormat('pdf')">
             <span class="format-icon">📄</span>
             <span>PDF Document (.pdf)</span>
           </button>
-          <button type="button" class="format-segment-btn" data-format="image" onclick="selectAttachmentFormat('image')">
+          <button type="button" class="format-segment-btn" data-format="image"
+            onclick="selectAttachmentFormat('image')">
             <span class="format-icon">🖼️</span>
             <span>Image (.png)</span>
           </button>
@@ -471,20 +500,24 @@
       <!-- Quick Actions Bar -->
       <div class="code-quick-tags">
         <span class="quick-tags-title">Quick Content & Variables:</span>
-        <button type="button" class="tag-insert-btn tag-highlight-btn" onclick="useComposerHtmlForAttachment()">Use Email Body HTML</button>
+        <button type="button" class="tag-insert-btn tag-highlight-btn" onclick="useComposerHtmlForAttachment()">Use
+          Email Body HTML</button>
         <button type="button" class="tag-insert-btn" onclick="loadSampleInvoiceHtml()">Sample Invoice</button>
         <button type="button" class="tag-insert-btn" onclick="loadSampleCertificateHtml()">Sample Certificate</button>
         <button type="button" class="tag-insert-btn" onclick="insertTagIntoAttachmentHtml('{name}')">{name}</button>
         <button type="button" class="tag-insert-btn" onclick="insertTagIntoAttachmentHtml('{email}')">{email}</button>
-        <button type="button" class="tag-insert-btn" onclick="insertTagIntoAttachmentHtml('<h1>Title</h1>')">&lt;h1&gt;</button>
-        <button type="button" class="tag-insert-btn" onclick="insertTagIntoAttachmentHtml('<p>Text</p>')">&lt;p&gt;</button>
+        <button type="button" class="tag-insert-btn"
+          onclick="insertTagIntoAttachmentHtml('<h1>Title</h1>')">&lt;h1&gt;</button>
+        <button type="button" class="tag-insert-btn"
+          onclick="insertTagIntoAttachmentHtml('<p>Text</p>')">&lt;p&gt;</button>
       </div>
 
       <!-- Split HTML Editor & Live Visual Preview -->
       <div class="attachment-editor-split">
         <div class="split-editor-pane">
           <label class="pane-label">&lt;/&gt; HTML Source Code (supports {name}, {email})</label>
-          <textarea id="attachment-html-input" class="drawer-html-textarea" placeholder="Paste your HTML code here... e.g. <div style='padding:24px; font-family:sans-serif;'><h1>Monthly Statement</h1><p>Dear {name}, here is your summary...</p></div>"></textarea>
+          <textarea id="attachment-html-input" class="drawer-html-textarea"
+            placeholder="Paste your HTML code here... e.g. <div style='padding:24px; font-family:sans-serif;'><h1>Monthly Statement</h1><p>Dear {name}, here is your summary...</p></div>"></textarea>
         </div>
 
         <div class="split-preview-pane">
@@ -499,10 +532,128 @@
 
       <div class="drawer-footer-actions">
         <button type="button" class="btn-secondary" onclick="closeHtmlAttachmentDrawer()">Cancel</button>
-        <button type="button" class="btn-primary btn-generate-attachment" id="generate-attachment-btn" onclick="convertAndAttachHtml()">
+        <button type="button" class="btn-primary btn-generate-attachment" id="generate-attachment-btn"
+          onclick="convertAndAttachHtml()">
           <span>Save & Attach Dynamic</span>
           <span class="format-badge-pill" id="generate-btn-format-pill">PDF</span>
         </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MANUAL RECIPIENTS MODAL -->
+  <div id="manual-recipients-modal" class="modal-overlay hidden" aria-hidden="true">
+    <div class="modal-card manual-recipients-card">
+      <div class="modal-header">
+        <div class="modal-header-info">
+          <h3>Add Recipients Manually</h3>
+          <p class="modal-subtitle">Paste emails & names using any formula or enter individually</p>
+        </div>
+        <button type="button" id="close-manual-modal-btn" class="modal-close-btn" title="Close modal">&times;</button>
+      </div>
+
+      <div class="modal-tabs">
+        <button type="button" class="modal-tab active" data-tab="bulk">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+            <polyline points="14 2 14 8 20 8"></polyline>
+            <line x1="16" y1="13" x2="8" y2="13"></line>
+            <line x1="16" y1="17" x2="8" y2="17"></line>
+          </svg>
+          <span>Bulk Paste / Formula</span>
+        </button>
+        <button type="button" class="modal-tab" data-tab="single">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+            <circle cx="8.5" cy="7" r="4"></circle>
+            <line x1="20" y1="8" x2="20" y2="14"></line>
+            <line x1="17" y1="11" x2="23" y2="11"></line>
+          </svg>
+          <span>Single Entry</span>
+        </button>
+      </div>
+
+      <div class="modal-body">
+        <!-- TAB 1: BULK PASTE / FORMULA -->
+        <div id="tab-content-bulk" class="modal-tab-content">
+          <div class="formula-controls-row">
+
+            <div id="custom-delimiter-group" class="formula-group hidden">
+              <label for="manual-custom-delimiter">Separator:</label>
+              <input type="text" id="manual-custom-delimiter" class="delimiter-input" placeholder="e.g. ; or |"
+                value=";" maxLength="5" />
+            </div>
+          </div>
+
+          <div class="bulk-textarea-wrapper">
+            <textarea id="manual-bulk-input" class="manual-bulk-textarea" rows="5" placeholder="Paste your recipient list here...
+Examples:
+Tracey Ochoa, tracey@example.com
+Alex Rivers <alex@example.com>
+sam@company.org, Sam Taylor
+jordan@domain.com"></textarea>
+          </div>
+
+          <div class="manual-preview-header">
+            <span class="preview-title">Parsed Recipients Preview</span>
+            <span id="manual-parsed-count-badge" class="parsed-count-badge">0 Valid Recipients</span>
+          </div>
+
+          <div class="manual-preview-scroll">
+            <div id="manual-preview-list" class="manual-preview-list">
+              <div class="preview-empty">No valid recipients parsed yet. Paste text or enter data above.</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- TAB 2: SINGLE ENTRY -->
+        <div id="tab-content-single" class="modal-tab-content hidden">
+          <div class="single-entry-fields">
+            <div class="input-field-group">
+              <label for="single-name-input">Recipient Name</label>
+              <input type="text" id="single-name-input" class="modal-text-input" placeholder="e.g. Sarah Jenkins" />
+            </div>
+            <div class="input-field-group">
+              <label for="single-email-input">Email Address</label>
+              <input type="email" id="single-email-input" class="modal-text-input"
+                placeholder="e.g. sarah@example.com" />
+            </div>
+            <button type="button" id="add-single-entry-btn" class="btn-secondary add-single-btn">
+              + Add to List
+            </button>
+          </div>
+
+          <div class="manual-preview-header" style="margin-top: 1rem;">
+            <span class="preview-title">Single Entries Pending Import</span>
+            <span id="single-parsed-count-badge" class="parsed-count-badge">0 Recipients</span>
+          </div>
+
+          <div class="manual-preview-scroll">
+            <div id="single-preview-list" class="manual-preview-list">
+              <div class="preview-empty">No single entries added yet. Fill in Name & Email above.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <div class="import-mode-options">
+          <label class="radio-label" title="Append new recipients to your current list">
+            <input type="radio" name="manual-import-mode" value="append" checked />
+            <span>Append to list</span>
+          </label>
+          <label class="radio-label" title="Replace all current recipients with these new ones">
+            <input type="radio" name="manual-import-mode" value="replace" />
+            <span>Replace current list</span>
+          </label>
+        </div>
+
+        <div class="modal-footer-btns">
+          <button type="button" id="manual-clear-btn" class="btn-secondary">Clear Input</button>
+          <button type="button" id="confirm-manual-import-btn" class="btn-primary">
+            Import Recipients
+          </button>
+        </div>
       </div>
     </div>
   </div>
