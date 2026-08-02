@@ -42,6 +42,7 @@ const varTooltip = document.querySelector("#var-tooltip");
 
 // State
 let loadedRecipients = [];
+let currentCsvFilename = "recipients.csv";
 let currentAttachment = null;
 let activeConfig = { gmail: "", delay_ms: 750 };
 let activeInput = messageVisual;
@@ -94,7 +95,74 @@ function escapeHtml(str) {
   return String(str).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
 
-// 1. CONFIGURATION MANAGEMENT (Browser localStorage)
+// 1. CONFIGURATION & DRAFT MANAGEMENT (Browser localStorage)
+function saveDraft() {
+  try {
+    const draft = {
+      subject: subjectInput ? subjectInput.value : "",
+      message: messageInput ? (editorMode === "html" ? messageInput.value : (messageVisual ? messageVisual.innerHTML : messageInput.value)) : "",
+      editorMode: editorMode,
+      loadedRecipients: loadedRecipients || [],
+      csvFilename: currentCsvFilename || "recipients.csv",
+      attachment: currentAttachment || null,
+    };
+    localStorage.setItem("mailer_draft", JSON.stringify(draft));
+  } catch (err) {
+    try {
+      const draftNoAtt = {
+        subject: subjectInput ? subjectInput.value : "",
+        message: messageInput ? (editorMode === "html" ? messageInput.value : (messageVisual ? messageVisual.innerHTML : messageInput.value)) : "",
+        editorMode: editorMode,
+        loadedRecipients: loadedRecipients || [],
+        csvFilename: currentCsvFilename || "recipients.csv",
+        attachment: null,
+      };
+      localStorage.setItem("mailer_draft", JSON.stringify(draftNoAtt));
+    } catch (e) {
+      console.warn("Could not save draft to localStorage:", e);
+    }
+  }
+}
+
+function restoreDraft() {
+  try {
+    const raw = localStorage.getItem("mailer_draft");
+    if (!raw) return;
+    const draft = JSON.parse(raw);
+
+    if (draft.subject !== undefined && subjectInput) {
+      subjectInput.value = draft.subject;
+    }
+
+    if (draft.message !== undefined) {
+      if (messageInput) messageInput.value = draft.message;
+      if (messageVisual) messageVisual.innerHTML = draft.message;
+    }
+
+    if (draft.editorMode && draft.editorMode !== editorMode) {
+      setEditorMode(draft.editorMode);
+    }
+
+    if (Array.isArray(draft.loadedRecipients) && draft.loadedRecipients.length > 0) {
+      loadedRecipients = draft.loadedRecipients;
+      currentCsvFilename = draft.csvFilename || "recipients.csv";
+      renderRecipientsUI(currentCsvFilename);
+      if (statRecipients) statRecipients.textContent = `Recipients: ${loadedRecipients.length}`;
+      log(`Restored ${loadedRecipients.length} recipient(s) from auto-saved draft.`, "csv");
+    }
+
+    if (draft.attachment) {
+      currentAttachment = draft.attachment;
+      renderAttachmentCard(currentAttachment.name, currentAttachment.format || "pdf");
+      log(`Restored attachment "${currentAttachment.name}" from draft.`, "sys");
+    }
+
+    updateAttachmentFilenameFromSubject();
+  } catch (err) {
+    console.error("Failed to restore draft:", err);
+  }
+}
+
 async function loadConfig() {
   const delay_ms = localStorage.getItem("mailer_delay") || "750";
   cfgDelayInput.value = delay_ms;
@@ -196,9 +264,11 @@ csvInput.addEventListener("change", async (e) => {
   try {
     const text = await file.text();
     loadedRecipients = parseCsv(text);
+    currentCsvFilename = file.name;
     renderRecipientsUI(file.name);
     statRecipients.textContent = `Recipients: ${loadedRecipients.length}`;
     log(`CSV file "${file.name}" loaded with ${loadedRecipients.length} valid recipient(s).`, "csv");
+    saveDraft();
   } catch (err) {
     log(`CSV parse error: ${err.message}`, "error");
     alert(`CSV Error: ${err.message}`);
@@ -270,6 +340,7 @@ function renderRecipientsUI(filename = "recipients.csv") {
       loadedRecipients.splice(idx, 1);
       renderRecipientsUI(filename);
       if (statRecipients) statRecipients.textContent = `Recipients: ${loadedRecipients.length}`;
+      saveDraft();
     });
   });
 
@@ -283,6 +354,7 @@ function renderRecipientsUI(filename = "recipients.csv") {
       renderRecipientsUI();
       if (statRecipients) statRecipients.textContent = "Recipients: 0";
       log("Cleared loaded CSV recipients.", "info");
+      saveDraft();
     });
   });
 }
@@ -310,6 +382,7 @@ function handleFileSelect(file) {
     };
     renderAttachmentCard(file.name, format);
     log(`Attachment "${file.name}" loaded (${(file.size / 1024).toFixed(1)} KB).`, "info");
+    saveDraft();
   };
   reader.readAsDataURL(file);
 }
@@ -419,6 +492,7 @@ function renderAttachmentCard(filename, formatOrIsImage = "pdf") {
     currentAttachment = null;
     renderEmptyDropzone();
     log(`Attachment removed.`, "info");
+    saveDraft();
   });
 }
 
@@ -450,6 +524,7 @@ function setEditorMode(mode) {
     messageVisual.focus();
     log("Switched to Normal (Visual Editable & Live Preview) mode.", "sys");
   }
+  saveDraft();
 }
 
 if (modeNormalBtn) modeNormalBtn.addEventListener("click", () => setEditorMode("normal"));
@@ -459,12 +534,14 @@ if (modeHtmlBtn) modeHtmlBtn.addEventListener("click", () => setEditorMode("html
 if (messageVisual) {
   messageVisual.addEventListener("input", () => {
     messageInput.value = messageVisual.innerHTML;
+    saveDraft();
   });
 }
 
 if (messageInput) {
   messageInput.addEventListener("input", () => {
     messageVisual.innerHTML = messageInput.value;
+    saveDraft();
   });
 }
 
@@ -484,6 +561,7 @@ document.querySelectorAll(".format-btn").forEach((btn) => {
     if (messageVisual) {
       messageVisual.focus();
       messageInput.value = messageVisual.innerHTML;
+      saveDraft();
     }
   });
 });
@@ -569,6 +647,7 @@ function applyTemplate(key) {
   if (messageVisual) messageVisual.innerHTML = html;
   closeTemplateDrawer();
   log(`Applied "${key}" HTML email template.`, "sys");
+  saveDraft();
 }
 
 const variableDrawer = document.querySelector("#variable-drawer");
@@ -634,6 +713,7 @@ document.querySelectorAll(".variable-chip-btn").forEach((btn) => {
 
     closeVariableDrawer();
     log(`Inserted variable tag ${tag} into template.`, "info");
+    saveDraft();
   });
 });
 
@@ -661,9 +741,11 @@ discardBtn.addEventListener("click", () => {
   if (messageVisual) messageVisual.innerHTML = "";
   loadedRecipients = [];
   currentAttachment = null;
+  currentCsvFilename = "recipients.csv";
   renderRecipientsUI();
   renderEmptyDropzone();
   statRecipients.textContent = "Recipients: 0";
+  localStorage.removeItem("mailer_draft");
   log("Composer discarded.", "sys");
 });
 
@@ -1138,9 +1220,12 @@ async function convertAndAttachHtml() {
   log(`Attached Dynamic HTML (${format.toUpperCase()}). Will convert live for each recipient during send.`, "info");
 }
 
-// Subject input listener for live attachment filename auto-update
+// Subject input listener for live attachment filename auto-update & draft save
 if (subjectInput) {
-  subjectInput.addEventListener("input", updateAttachmentFilenameFromSubject);
+  subjectInput.addEventListener("input", () => {
+    updateAttachmentFilenameFromSubject();
+    saveDraft();
+  });
 }
 
 // Bind all global drawer handlers to window so inline onclick always works
@@ -1177,6 +1262,7 @@ if (drawerCodeInput) {
   drawerCodeInput.addEventListener("input", () => {
     messageInput.value = drawerCodeInput.value;
     if (messageVisual) messageVisual.innerHTML = drawerCodeInput.value;
+    saveDraft();
   });
 }
 
@@ -1189,3 +1275,4 @@ if (attachmentHtmlInput) {
 loadConfig();
 renderRecipientsUI();
 renderEmptyDropzone();
+restoreDraft();
