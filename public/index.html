@@ -20,14 +20,18 @@
   <div class="app-container">
     <!-- LEFT PANE: Email Composer -->
     <section class="composer-pane" aria-label="Email Composer">
-      <header class="composer-header">
-        <h1 class="composer-title">New mail</h1>
-        <div class="window-controls">
-          <span class="win-btn win-min" title="Minimize">–</span>
-          <span class="win-btn win-max" title="Maximize">⤢</span>
-          <span class="win-btn win-close" title="Close">✕</span>
+      <!-- TOP MODE BANNER STRIP -->
+      <div id="top-mode-banner-strip" class="top-mode-banner-strip test-mode">
+        <div class="mode-ribbon-pill" id="mode-ribbon-pill">
+          <span class="mode-dot">●</span>
+          <span class="mode-title-text" id="mode-title-text">YOU'RE IN TEST MODE</span>
+          <label class="mode-switch-toggle" title="Toggle Test Mode (Yellow) and Live Mode (Green)">
+            <input type="checkbox" id="mode-toggle-checkbox" checked />
+            <span class="mode-switch-slider"></span>
+          </label>
         </div>
-      </header>
+      </div>
+
 
       <form id="mailer-form" class="composer-body">
         <!-- FROM ROW -->
@@ -46,36 +50,70 @@
                 </svg>
               </button>
 
-              <!-- Credentials Popover Modal -->
+              <!-- Google Account Settings & Login Modal -->
               <div id="config-modal" class="popover-modal hidden" aria-hidden="true">
-                <div class="popover-header">
-                  <h3>Google account</h3>
-                  <p class="popover-subtitle">Sign in with Google to send from your Gmail account.</p>
-                </div>
-                <div class="popover-body">
-                  <p id="google-account-status" class="input-hint">Checking Google connection…</p>
-                  <div class="input-row-dual">
-                    <label class="input-group">
-                      <span>Delay (ms)</span>
-                      <input type="number" id="cfg-delay" value="750" min="100" max="5000" step="50" />
-                    </label>
-                    <label class="input-group checkbox-label">
-                      <input type="checkbox" id="cfg-dry-run" />
-                      <span>Dry Run Mode</span>
-                    </label>
+                <div class="popover-card google-modal-card">
+                  <!-- Close Button -->
+                  <button type="button" id="cfg-cancel-btn" class="modal-close-icon-btn" title="Close modal">&times;</button>
+                  
+                  <div class="google-modal-header">
+                    <div class="google-modal-icon-badge">
+                      <svg width="26" height="26" viewBox="0 0 24 24">
+                        <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                        <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                        <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
+                        <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
+                      </svg>
+                    </div>
+                    <div class="google-header-text">
+                      <h3>Google Account</h3>
+                      <p class="google-modal-subtitle">Connect your Gmail account to send emails via Google API.</p>
+                    </div>
                   </div>
-                </div>
-                <div class="popover-footer">
-                  <button type="button" id="cfg-cancel-btn" class="btn-secondary">Cancel</button>
-                  <button type="button" id="google-connect-btn" class="btn-primary">Sign in with Google</button>
-                  <button type="button" id="google-disconnect-btn" class="btn-secondary hidden">Disconnect</button>
+
+                  <div class="google-modal-body">
+                    <!-- Live Connection Status Pill -->
+                    <div class="google-status-banner">
+                      <span class="status-dot-pulse" id="google-status-dot"></span>
+                      <span id="google-account-status">Checking Google connection…</span>
+                    </div>
+
+                    <div class="google-settings-grid">
+                      <div class="input-field-group">
+                        <label for="cfg-delay">Sending Delay</label>
+                        <div class="input-with-unit">
+                          <input type="number" id="cfg-delay" value="750" min="100" max="5000" step="50" />
+                          <span class="unit-badge">ms</span>
+                        </div>
+                      </div>
+
+                      <div class="input-field-group action-field-group">
+                        <label class="field-spacer-label">&nbsp;</label>
+                        <button type="button" id="google-disconnect-btn" class="btn-disconnect-red hidden">
+                          <span>Logout</span>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="google-modal-footer">
+                    <button type="button" id="google-connect-btn" class="btn-google-signin">
+                      <svg width="20" height="20" viewBox="0 0 24 24">
+                        <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                        <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                        <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
+                        <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
+                      </svg>
+                      <span>Sign in with Google</span>
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
 
-            <input type="text" id="from-name-input" class="from-name-input" placeholder="Sender Name e.g. Tracey Ochoa"
+            <input type="text" id="from-name-input" class="from-name-input" placeholder="Sender Name"
               title="Sender Name shown to recipients in their inbox"
-              style="height: 36px; padding: 0 12px; border: 1px solid #e5e7eb; border-radius: 8px; font-size: 0.88rem; background: #ffffff; color: #111827; min-width: 220px; outline: none; transition: border-color 0.2s ease;" />
+              style="height: 40px; padding: 10px 16px; border: 1px solid #f3f3f3cf; border-radius: 22px; font-size: 0.88rem; background: #edededa6; color: #111827; min-width: 220px; outline: none; transition: border-color 0.2s ease;" />
           </div>
         </div>
 
@@ -124,21 +162,12 @@
         <!-- MESSAGE BODY AREA WITH VISUAL PREVIEW & HTML SIDE DRAWER -->
         <div class="editor-area">
           <div class="editor-header-bar">
-            <div class="editor-mode-toggle">
-              <span class="editor-tab active" title="Visual Editable & Live Preview">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
-                  <circle cx="12" cy="12" r="3"></circle>
-                </svg>
-                <span>Visual Editor</span>
-              </span>
+            <div class="editor-mode-toggle capsule-segmented-control">
+
               <button type="button" id="open-html-drawer-btn" class="editor-tab btn-open-side-drawer"
                 onclick="openHtmlCodeDrawer()" title="Open HTML Source Editor in Side Drawer">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <polyline points="16 18 22 12 16 6"></polyline>
-                  <polyline points="8 6 2 12 8 18"></polyline>
-                </svg>
-                <span>&lt;/&gt; HTML Source (Side Drawer)</span>
+
+                <span>Open Html Editor</span>
               </button>
             </div>
 
@@ -187,7 +216,6 @@
                 </div>
                 <div class="upload-box-text">
                   <span class="upload-main-text">Upload File</span>
-                  <span class="upload-sub-text">PDF, PNG, JPG, or DOCX</span>
                 </div>
               </label>
 
@@ -202,7 +230,6 @@
                 </div>
                 <div class="upload-box-text">
                   <span class="upload-main-text">Paste HTML & Convert</span>
-                  <span class="upload-sub-text">Convert to PDF, Image, or DOCX</span>
                 </div>
               </button>
             </div>
@@ -251,6 +278,8 @@
             </label>
 
             <button type="button" class="btn-discard" id="discard-btn">Discard</button>
+            <button type="button" class="btn-stop-send hidden" id="stop-button"
+              title="Stop ongoing email sending process">⏹ Stop Sending</button>
             <button type="submit" class="btn-send-email" id="send-button">Send email</button>
           </div>
         </footer>
@@ -282,6 +311,7 @@
       <div class="progress-container hidden" id="progress-container">
         <div class="progress-bar-fill" id="progress-bar-fill"></div>
         <span class="progress-text" id="progress-text">0 / 0 sent</span>
+        <button type="button" id="stop-mini-button" class="btn-stop-mini hidden" title="Cancel sending">⏹ Stop</button>
       </div>
 
       <div class="terminal-console">
@@ -576,22 +606,18 @@
       <div class="modal-body">
         <!-- TAB 1: BULK PASTE / FORMULA -->
         <div id="tab-content-bulk" class="modal-tab-content">
-          <div class="formula-controls-row">
+          <!-- <div class="formula-controls-row">
 
             <div id="custom-delimiter-group" class="formula-group hidden">
               <label for="manual-custom-delimiter">Separator:</label>
               <input type="text" id="manual-custom-delimiter" class="delimiter-input" placeholder="e.g. ; or |"
                 value=";" maxLength="5" />
             </div>
-          </div>
+          </div> -->
 
           <div class="bulk-textarea-wrapper">
-            <textarea id="manual-bulk-input" class="manual-bulk-textarea" rows="5" placeholder="Paste your recipient list here...
-Examples:
-Tracey Ochoa, tracey@example.com
-Alex Rivers <alex@example.com>
-sam@company.org, Sam Taylor
-jordan@domain.com"></textarea>
+            <textarea id="manual-bulk-input" class="manual-bulk-textarea" rows="10"
+              placeholder="Paste your recipient list here..."></textarea>
           </div>
 
           <div class="manual-preview-header">

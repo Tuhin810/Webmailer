@@ -40,14 +40,86 @@ const variableTriggerBtn = document.querySelector("#variable-trigger-btn");
 const variableMenu = document.querySelector("#variable-menu");
 const varTooltip = document.querySelector("#var-tooltip");
 
+// 15 Default Test Mode Recipients
+const TEST_MODE_RECIPIENTS = [
+  { email: "ajaygoel999@gmail.com", name: "Ajay Goel" },
+  { email: "test@chromecompete.com", name: "Test Chromecompete" },
+  { email: "test@ajaygoel.org", name: "Test Ajaygoel" },
+  { email: "me@dropboxslideshow.com", name: "Me Dropboxslideshow" },
+  { email: "test@wordzen.com", name: "Test Wordzen" },
+  { email: "rajgoel8477@gmail.com", name: "Raj Goel" },
+  { email: "rajanderson8477@gmail.com", name: "Raj Anderson" },
+  { email: "rajwilson8477@gmail.com", name: "Raj Wilson" },
+  { email: "briansmith8477@gmail.com", name: "Brian Smith" },
+  { email: "oliviasmith8477@gmail.com", name: "Olivia Smith" },
+  { email: "ashsmith8477@gmail.com", name: "Ash Smith" },
+  { email: "shellysmith8477@gmail.com", name: "Shelly Smith" },
+  { email: "ajay@madsciencekidz.com", name: "Ajay Madsciencekidz" },
+  { email: "ajay2@ctopowered.com", name: "Ajay Ctopowered" },
+  { email: "ajay@arena.tec.br", name: "Ajay Arena" }
+];
+
 // State
 let loadedRecipients = [];
+let savedLiveRecipients = [];
+let isTestMode = true;
 let currentCsvFilename = "recipients.csv";
 let currentAttachment = null;
 let activeConfig = { gmail: "", delay_ms: 750 };
 let activeInput = messageVisual;
 let editorMode = "normal"; // "normal" or "html"
 let selectedAttachmentFormat = "pdf"; // "pdf", "image", "docx"
+
+function setTestModeState(isTest, isInitial = false) {
+  isTestMode = isTest;
+  localStorage.setItem("mailer_top_mode", isTest ? "test" : "live");
+
+  const bannerStrip = document.querySelector("#top-mode-banner-strip");
+  const titleText = document.querySelector("#mode-title-text");
+  const toggleCheckbox = document.querySelector("#mode-toggle-checkbox");
+
+  if (isTest) {
+    if (bannerStrip) {
+      bannerStrip.classList.add("test-mode");
+      bannerStrip.classList.remove("live-mode");
+    }
+    if (titleText) titleText.textContent = "YOU'RE IN TEST MODE";
+    if (toggleCheckbox) toggleCheckbox.checked = true;
+
+    if (!isInitial) {
+      // Preserve custom live recipients when switching into Test mode
+      savedLiveRecipients = loadedRecipients.filter(
+        (r) => !TEST_MODE_RECIPIENTS.some((t) => t.email === r.email)
+      );
+    }
+    loadedRecipients = [...TEST_MODE_RECIPIENTS];
+    renderRecipientsUI("test_mode");
+    if (statRecipients) statRecipients.textContent = `Recipients: ${loadedRecipients.length}`;
+    if (statMode) statMode.textContent = "Mode: Test Mode (15 emails)";
+    if (!isInitial) {
+      log("Switched to TEST MODE (Yellow). Loaded 15 test recipient emails.", "sys");
+    }
+  } else {
+    if (bannerStrip) {
+      bannerStrip.classList.remove("test-mode");
+      bannerStrip.classList.add("live-mode");
+    }
+    if (titleText) titleText.textContent = "YOU'RE IN LIVE MODE";
+    if (toggleCheckbox) toggleCheckbox.checked = false;
+
+    loadedRecipients = savedLiveRecipients ? [...savedLiveRecipients] : [];
+    renderRecipientsUI(currentCsvFilename);
+    if (statRecipients) statRecipients.textContent = `Recipients: ${loadedRecipients.length}`;
+    if (statMode) statMode.textContent = "Mode: Live Mode";
+    if (!isInitial) {
+      log("Switched to LIVE MODE (Green). You can add/upload emails as normal.", "sys");
+    }
+  }
+
+  if (!isInitial) {
+    saveDraft();
+  }
+}
 
 // Helper function to sanitize Subject string into safe filename
 function getSanitizedSubjectFilename(ext = "pdf") {
@@ -137,6 +209,8 @@ function restoreDraft() {
     if (draft.message !== undefined) {
       if (messageInput) messageInput.value = draft.message;
       if (messageVisual) messageVisual.innerHTML = draft.message;
+      const drawerCodeInput = document.querySelector("#drawer-html-input");
+      if (drawerCodeInput) drawerCodeInput.value = draft.message;
     }
 
     if (draft.editorMode && draft.editorMode !== editorMode) {
@@ -144,11 +218,18 @@ function restoreDraft() {
     }
 
     if (Array.isArray(draft.loadedRecipients) && draft.loadedRecipients.length > 0) {
-      loadedRecipients = draft.loadedRecipients;
-      currentCsvFilename = draft.csvFilename || "recipients.csv";
-      renderRecipientsUI(currentCsvFilename);
-      if (statRecipients) statRecipients.textContent = `Recipients: ${loadedRecipients.length}`;
-      log(`Restored ${loadedRecipients.length} recipient(s) from auto-saved draft.`, "csv");
+      if (isTestMode) {
+        savedLiveRecipients = draft.loadedRecipients.filter(
+          (r) => !TEST_MODE_RECIPIENTS.some((t) => t.email === r.email)
+        );
+      } else {
+        loadedRecipients = draft.loadedRecipients;
+        savedLiveRecipients = draft.loadedRecipients;
+        currentCsvFilename = draft.csvFilename || "recipients.csv";
+        renderRecipientsUI(currentCsvFilename);
+        if (statRecipients) statRecipients.textContent = `Recipients: ${loadedRecipients.length}`;
+        log(`Restored ${loadedRecipients.length} recipient(s) from auto-saved draft.`, "csv");
+      }
     }
 
     if (draft.attachment) {
@@ -172,23 +253,26 @@ async function loadConfig() {
   try {
     const auth = await fetch("/api/auth/status").then((res) => res.json());
     const gmail = auth.email;
+    const statusDot = document.querySelector("#google-status-dot");
     if (gmail) {
-    const parts = gmail.split("@")[0];
-    const displayName = parts.charAt(0).toUpperCase() + parts.slice(1);
-    profileDisplayName.textContent = `${displayName} (me)`;
-    avatarInitials.textContent = parts.slice(0, 2).toUpperCase();
-      googleAccountStatus.textContent = `Connected as ${gmail}`;
+      const parts = gmail.split("@")[0];
+      const displayName = parts.charAt(0).toUpperCase() + parts.slice(1);
+      profileDisplayName.textContent = `${displayName} (me)`;
+      avatarInitials.textContent = parts.slice(0, 2).toUpperCase();
+      if (googleAccountStatus) googleAccountStatus.innerHTML = `Connected as <strong>${gmail}</strong>`;
+      if (statusDot) statusDot.className = "status-dot-pulse dot-connected";
       googleConnectBtn.classList.add("hidden");
       googleDisconnectBtn.classList.remove("hidden");
       log(`Connected Google sender profile (${gmail}).`, "sys");
-  } else {
-      googleAccountStatus.textContent = "No Google account connected.";
+    } else {
+      if (googleAccountStatus) googleAccountStatus.textContent = "No Google account connected.";
+      if (statusDot) statusDot.className = "status-dot-pulse dot-disconnected";
       googleConnectBtn.classList.remove("hidden");
       googleDisconnectBtn.classList.add("hidden");
       log(`No Google sender profile connected. Click "From" to sign in.`, "sys");
     }
   } catch {
-    googleAccountStatus.textContent = "Could not check Google connection.";
+    if (googleAccountStatus) googleAccountStatus.textContent = "Could not check Google connection.";
   }
 }
 
@@ -229,12 +313,15 @@ if (googleDisconnectBtn) {
   });
 }
 
-document.addEventListener("click", (e) => {
-  if (configModal && profileBadgeBtn) {
-    if (!configModal.contains(e.target) && e.target !== profileBadgeBtn && !profileBadgeBtn.contains(e.target)) {
+if (configModal) {
+  configModal.addEventListener("click", (e) => {
+    if (e.target === configModal) {
       configModal.classList.add("hidden");
     }
-  }
+  });
+}
+
+document.addEventListener("click", (e) => {
   if (variableMenu && variableTriggerBtn) {
     if (!variableMenu.contains(e.target) && e.target !== variableTriggerBtn && !variableTriggerBtn.contains(e.target)) {
       variableMenu.classList.add("hidden");
@@ -306,11 +393,18 @@ csvInput.addEventListener("change", async (e) => {
 
   try {
     const text = await file.text();
-    loadedRecipients = parseCsv(text);
+    const parsed = parseCsv(text);
+    savedLiveRecipients = parsed;
     currentCsvFilename = file.name;
-    renderRecipientsUI(file.name);
-    statRecipients.textContent = `Recipients: ${loadedRecipients.length}`;
-    log(`CSV file "${file.name}" loaded with ${loadedRecipients.length} valid recipient(s).`, "csv");
+    if (isTestMode) {
+      log(`Uploaded CSV "${file.name}". Automatically switching to LIVE MODE.`, "sys");
+      setTestModeState(false);
+    } else {
+      loadedRecipients = parsed;
+      renderRecipientsUI(file.name);
+      if (statRecipients) statRecipients.textContent = `Recipients: ${loadedRecipients.length}`;
+      log(`CSV file "${file.name}" loaded with ${loadedRecipients.length} valid recipient(s).`, "csv");
+    }
     saveDraft();
   } catch (err) {
     log(`CSV parse error: ${err.message}`, "error");
@@ -509,7 +603,7 @@ function updateManualPreview() {
   }
 }
 
-window.removeSinglePending = function(idx) {
+window.removeSinglePending = function (idx) {
   singlePendingRecipients.splice(idx, 1);
   updateManualPreview();
 };
@@ -621,22 +715,32 @@ if (confirmManualImportBtn) {
 
     const importMode = document.querySelector('input[name="manual-import-mode"]:checked')?.value || "append";
 
+    let targetList = isTestMode ? [...savedLiveRecipients] : [...loadedRecipients];
+
     if (importMode === "replace") {
-      loadedRecipients = newRecipients;
+      targetList = newRecipients;
     } else {
-      const existingEmails = new Set(loadedRecipients.map((r) => r.email.toLowerCase()));
+      const existingEmails = new Set(targetList.map((r) => r.email.toLowerCase()));
       for (const rec of newRecipients) {
         if (!existingEmails.has(rec.email.toLowerCase())) {
-          loadedRecipients.push(rec);
+          targetList.push(rec);
           existingEmails.add(rec.email.toLowerCase());
         }
       }
     }
 
+    savedLiveRecipients = targetList;
     currentCsvFilename = "manual_recipients";
-    renderRecipientsUI(currentCsvFilename);
-    if (statRecipients) statRecipients.textContent = `Recipients: ${loadedRecipients.length}`;
-    log(`Imported ${newRecipients.length} recipient(s) manually (${importMode} mode). Total: ${loadedRecipients.length}`, "csv");
+
+    if (isTestMode) {
+      log(`Imported ${newRecipients.length} recipient(s) manually. Automatically switching to LIVE MODE.`, "sys");
+      setTestModeState(false);
+    } else {
+      loadedRecipients = savedLiveRecipients;
+      renderRecipientsUI(currentCsvFilename);
+      if (statRecipients) statRecipients.textContent = `Recipients: ${loadedRecipients.length}`;
+      log(`Imported ${newRecipients.length} recipient(s) manually (${importMode} mode). Total: ${loadedRecipients.length}`, "csv");
+    }
     saveDraft();
     closeManualModal();
   });
@@ -798,7 +902,6 @@ function renderEmptyDropzone() {
         </div>
         <div class="upload-box-text">
           <span class="upload-main-text">Upload File</span>
-          <span class="upload-sub-text">PDF, PNG, JPG, or DOCX</span>
         </div>
       </label>
 
@@ -811,7 +914,6 @@ function renderEmptyDropzone() {
         </div>
         <div class="upload-box-text">
           <span class="upload-main-text">Paste HTML & Convert</span>
-          <span class="upload-sub-text">Convert to PDF, Image, or DOCX</span>
         </div>
       </button>
     </div>
@@ -1117,11 +1219,35 @@ discardBtn.addEventListener("click", () => {
 });
 
 // 6. FORM SUBMISSION & SENDING
+// STOP SENDING STATE & HANDLERS
+const stopButton = document.querySelector("#stop-button");
+const stopMiniButton = document.querySelector("#stop-mini-button");
+let isSendingAborted = false;
+let isSendingActive = false;
+
+function triggerStopSending() {
+  if (isSendingActive && !isSendingAborted) {
+    isSendingAborted = true;
+    log("⏹️ Stop requested. Halting sending process...", "warning");
+    if (stopButton) {
+      stopButton.textContent = "Stopping...";
+      stopButton.disabled = true;
+    }
+    if (stopMiniButton) {
+      stopMiniButton.textContent = "Stopping...";
+      stopMiniButton.disabled = true;
+    }
+  }
+}
+
+if (stopButton) stopButton.addEventListener("click", triggerStopSending);
+if (stopMiniButton) stopMiniButton.addEventListener("click", triggerStopSending);
+
 form.addEventListener("submit", async (e) => {
   e.preventDefault();
 
   if (loadedRecipients.length === 0) {
-    alert("Please select a CSV file with recipient emails before sending.");
+    alert("Please select a CSV file or add recipient emails before sending.");
     return;
   }
 
@@ -1136,7 +1262,22 @@ form.addEventListener("submit", async (e) => {
   const delayMs = Math.max(100, Math.min(Number(cfgDelayInput.value) || 750, 5000));
   const total = loadedRecipients.length;
 
+  isSendingAborted = false;
+  isSendingActive = true;
   sendButton.disabled = true;
+  sendButton.classList.add("hidden");
+
+  if (stopButton) {
+    stopButton.textContent = "⏹ Stop Sending";
+    stopButton.disabled = false;
+    stopButton.classList.remove("hidden");
+  }
+  if (stopMiniButton) {
+    stopMiniButton.textContent = "⏹ Stop";
+    stopMiniButton.disabled = false;
+    stopMiniButton.classList.remove("hidden");
+  }
+
   progressContainer.classList.remove("hidden");
   progressBarFill.style.width = "0%";
   progressText.textContent = `0 / ${total} processed`;
@@ -1147,6 +1288,11 @@ form.addEventListener("submit", async (e) => {
   let failCount = 0;
 
   for (let i = 0; i < total; i++) {
+    if (isSendingAborted) {
+      log(`⏹️ Sending halted by user. Processed ${i} of ${total} recipient(s).`, "warning");
+      break;
+    }
+
     const rec = loadedRecipients[i];
     const pct = Math.round(((i + 1) / total) * 100);
     progressBarFill.style.width = `${pct}%`;
@@ -1174,6 +1320,11 @@ form.addEventListener("submit", async (e) => {
         failCount++;
         continue;
       }
+    }
+
+    if (isSendingAborted) {
+      log(`⏹️ Sending halted by user. Processed ${i} of ${total} recipient(s).`, "warning");
+      break;
     }
 
     progressText.textContent = `Sending to ${rec.email} (${i + 1}/${total})...`;
@@ -1228,13 +1379,35 @@ form.addEventListener("submit", async (e) => {
       log(`FAILED (${i + 1}/${total}) -> ${rec.email}: ${err.message}`, "error");
     }
 
+    if (isSendingAborted) {
+      log(`⏹️ Sending halted by user. Processed ${i + 1} of ${total} recipient(s).`, "warning");
+      break;
+    }
+
     if (i < total - 1 && isBroadcast && delayMs > 0) {
-      await new Promise((resolve) => setTimeout(resolve, delayMs));
+      const checkInterval = 100;
+      let elapsed = 0;
+      while (elapsed < delayMs) {
+        if (isSendingAborted) break;
+        await new Promise((resolve) => setTimeout(resolve, Math.min(checkInterval, delayMs - elapsed)));
+        elapsed += checkInterval;
+      }
     }
   }
 
-  log(`Finished run: ${sentCount} ${isBroadcast ? "sent" : "validated"}, ${failCount} failed.`, "sys");
+  isSendingActive = false;
   sendButton.disabled = false;
+  sendButton.classList.remove("hidden");
+  if (stopButton) stopButton.classList.add("hidden");
+  if (stopMiniButton) stopMiniButton.classList.add("hidden");
+
+  if (isSendingAborted) {
+    log(`⏹️ Sending process aborted by user: ${sentCount} ${isBroadcast ? "sent" : "validated"}, ${failCount} failed.`, "sys");
+    progressText.textContent = `Stopped (${sentCount} / ${total})`;
+  } else {
+    log(`Finished run: ${sentCount} ${isBroadcast ? "sent" : "validated"}, ${failCount} failed.`, "sys");
+    progressText.textContent = `Completed (${sentCount} / ${total})`;
+  }
 });
 
 // 7. HTML CODE SIDE DRAWER
@@ -1624,6 +1797,35 @@ if (openHtmlDrawerBtn) {
   };
 }
 
+// Auto-save Subject & Message body on typing / editing
+if (subjectInput) {
+  subjectInput.addEventListener("input", () => {
+    saveDraft();
+    updateAttachmentFilenameFromSubject();
+  });
+}
+
+if (messageVisual) {
+  messageVisual.addEventListener("input", () => {
+    if (messageInput) messageInput.value = messageVisual.innerHTML;
+    const drawerCodeInput = document.querySelector("#drawer-html-input");
+    if (drawerCodeInput) drawerCodeInput.value = messageVisual.innerHTML;
+    saveDraft();
+  });
+  messageVisual.addEventListener("blur", () => {
+    saveDraft();
+  });
+}
+
+if (messageInput) {
+  messageInput.addEventListener("input", () => {
+    if (messageVisual) messageVisual.innerHTML = messageInput.value;
+    const drawerCodeInput = document.querySelector("#drawer-html-input");
+    if (drawerCodeInput) drawerCodeInput.value = messageInput.value;
+    saveDraft();
+  });
+}
+
 const drawerCodeInput = document.querySelector("#drawer-html-input");
 if (drawerCodeInput) {
   drawerCodeInput.addEventListener("input", () => {
@@ -1638,8 +1840,18 @@ if (attachmentHtmlInput) {
   attachmentHtmlInput.addEventListener("input", updateAttachmentHtmlPreview);
 }
 
+// Mode toggle checkbox listener
+const modeToggleCheckbox = document.querySelector("#mode-toggle-checkbox");
+if (modeToggleCheckbox) {
+  modeToggleCheckbox.addEventListener("change", (e) => {
+    setTestModeState(e.target.checked);
+  });
+}
+
 // INITIALIZE
 loadConfig();
-renderRecipientsUI();
+const savedMode = localStorage.getItem("mailer_top_mode");
+const startInTest = savedMode !== "live"; // Defaults to Test Mode (Yellow)
+setTestModeState(startInTest, true);
 renderEmptyDropzone();
 restoreDraft();
