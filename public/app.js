@@ -761,61 +761,17 @@ function renderRecipientsUI(filename = "recipients.csv") {
   const count = loadedRecipients.length;
   const labelText = count === 1 ? "1 email" : `${count} emails`;
 
-  // 1. Mobile summary badge (visible on mobile screens)
-  const mobileCountChip = document.createElement("div");
-  mobileCountChip.className = "recipient-chip main-count-chip";
-  mobileCountChip.innerHTML = `
+  // Single total count chip
+  const countChip = document.createElement("div");
+  countChip.className = "recipient-chip individual-chip summary-chip";
+  countChip.innerHTML = `
     <span class="chip-avatar-num">${count}</span>
     <span class="chip-text">${labelText}</span>
-    <button type="button" class="chip-remove clear-all-btn" title="Remove CSV & clear all">✕</button>
+    <button type="button" class="chip-remove clear-all-btn" title="Remove all recipients">✕</button>
   `;
-  recipientsList.appendChild(mobileCountChip);
+  recipientsList.appendChild(countChip);
 
-  // 2. Desktop view: Render 2 individual emails from list + remaining count badge
-  const maxVisibleDesktop = 2;
-  const visibleRecipients = loadedRecipients.slice(0, maxVisibleDesktop);
-  const remainingCount = count - maxVisibleDesktop;
-
-  visibleRecipients.forEach((rec, idx) => {
-    const initials = rec.name
-      ? rec.name.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2)
-      : rec.email.slice(0, 2).toUpperCase();
-
-    const chip = document.createElement("div");
-    chip.className = "recipient-chip individual-chip";
-    chip.innerHTML = `
-      <span class="chip-avatar">${escapeHtml(initials)}</span>
-      <span class="chip-text">${escapeHtml(rec.name || rec.email)}</span>
-      <button type="button" class="chip-remove remove-single-btn" data-idx="${idx}" title="Remove recipient">✕</button>
-    `;
-    recipientsList.appendChild(chip);
-  });
-
-  if (remainingCount > 0) {
-    const remainingText = `+${remainingCount} emails`;
-    const moreChip = document.createElement("div");
-    moreChip.className = "recipient-chip individual-chip summary-chip";
-    moreChip.innerHTML = `
-      <span class="chip-avatar-num">+${remainingCount}</span>
-      <span class="chip-text">${remainingText}</span>
-      <button type="button" class="chip-remove clear-all-btn" title="Remove CSV & clear all">✕</button>
-    `;
-    recipientsList.appendChild(moreChip);
-  }
-
-  // Event listener for removing individual recipient
-  recipientsList.querySelectorAll(".remove-single-btn").forEach((btn) => {
-    btn.addEventListener("click", (e) => {
-      e.stopPropagation();
-      const idx = Number(btn.getAttribute("data-idx"));
-      loadedRecipients.splice(idx, 1);
-      renderRecipientsUI(filename);
-      if (statRecipients) statRecipients.textContent = `Recipients: ${loadedRecipients.length}`;
-      saveDraft();
-    });
-  });
-
-  // Event listener for clearing all CSV recipients
+  // Event listener for clearing all recipients
   recipientsList.querySelectorAll(".clear-all-btn").forEach((btn) => {
     btn.addEventListener("click", (e) => {
       e.stopPropagation();
