@@ -70,6 +70,14 @@ let activeInput = messageVisual;
 let editorMode = "normal"; // "normal" or "html"
 let selectedAttachmentFormat = "pdf"; // "pdf", "image", "docx"
 
+// Chunk sending state
+const CHUNK_SIZE = 16;
+let recipientChunks = [];       // Array of arrays, each max CHUNK_SIZE
+let currentChunkIndex = 0;      // Which chunk is being sent / next to send
+let cooldownTimerId = null;     // setInterval id for the countdown
+let cooldownSkipped = false;    // flag to skip the cooldown wait
+let cooldownCancelled = false;  // flag to cancel remaining chunks
+
 function setTestModeState(isTest, isInitial = false) {
   isTestMode = isTest;
   localStorage.setItem("mailer_top_mode", isTest ? "test" : "live");
@@ -746,11 +754,21 @@ if (confirmManualImportBtn) {
   });
 }
 
+function buildChunks() {
+  recipientChunks = [];
+  for (let i = 0; i < loadedRecipients.length; i += CHUNK_SIZE) {
+    recipientChunks.push(loadedRecipients.slice(i, i + CHUNK_SIZE));
+  }
+  currentChunkIndex = 0;
+}
+
 function renderRecipientsUI(filename = "recipients.csv") {
   recipientsList.innerHTML = "";
   const toActionsContainer = document.querySelector(".to-actions");
 
   if (loadedRecipients.length === 0) {
+    recipientChunks = [];
+    currentChunkIndex = 0;
     if (toActionsContainer) toActionsContainer.style.display = "inline-flex";
     return;
   }
@@ -758,24 +776,45 @@ function renderRecipientsUI(filename = "recipients.csv") {
   // Hide "Choose CSV" button after CSV is uploaded
   if (toActionsContainer) toActionsContainer.style.display = "none";
 
-  const count = loadedRecipients.length;
-  const labelText = count === 1 ? "1 email" : `${count} emails`;
+  // Build chunks
+  buildChunks();
 
-  // Single total count chip
+  const count = loadedRecipients.length;
+  const totalChunks = recipientChunks.length;
+
+  // Total count chip
   const countChip = document.createElement("div");
   countChip.className = "recipient-chip individual-chip summary-chip";
   countChip.innerHTML = `
     <span class="chip-avatar-num">${count}</span>
-    <span class="chip-text">${labelText}</span>
+    <span class="chip-text">${count} emails · ${totalChunks} chunk${totalChunks > 1 ? "s" : ""}</span>
     <button type="button" class="chip-remove clear-all-btn" title="Remove all recipients">✕</button>
   `;
   recipientsList.appendChild(countChip);
+
+  // Chunk chips wrapper
+  const chunkWrapper = document.createElement("div");
+  chunkWrapper.className = "chunk-chips-wrapper";
+  chunkWrapper.id = "chunk-chips-wrapper";
+
+  recipientChunks.forEach((chunk, idx) => {
+    const chip = document.createElement("div");
+    chip.className = "chunk-chip";
+    chip.id = `chunk-chip-${idx}`;
+    if (idx === 0) chip.classList.add("active-chunk");
+    chip.innerHTML = `<span class="chunk-label">Chunk ${idx + 1} (${chunk.length})</span>`;
+    chunkWrapper.appendChild(chip);
+  });
+
+  recipientsList.appendChild(chunkWrapper);
 
   // Event listener for clearing all recipients
   recipientsList.querySelectorAll(".clear-all-btn").forEach((btn) => {
     btn.addEventListener("click", (e) => {
       e.stopPropagation();
       loadedRecipients = [];
+      recipientChunks = [];
+      currentChunkIndex = 0;
       const csvInput = document.querySelector("#csv-input");
       if (csvInput) csvInput.value = "";
       renderRecipientsUI();
@@ -783,6 +822,20 @@ function renderRecipientsUI(filename = "recipients.csv") {
       log("Cleared loaded CSV recipients.", "info");
       saveDraft();
     });
+  });
+}
+
+// Update chunk chip visual states
+function updateChunkChipStates() {
+  recipientChunks.forEach((_, idx) => {
+    const chip = document.getElementById(`chunk-chip-${idx}`);
+    if (!chip) return;
+    chip.classList.remove("active-chunk", "sent-chunk");
+    if (idx < currentChunkIndex) {
+      chip.classList.add("sent-chunk");
+    } else if (idx === currentChunkIndex) {
+      chip.classList.add("active-chunk");
+    }
   });
 }
 
@@ -1216,10 +1269,17 @@ form.addEventListener("submit", async (e) => {
 
   const isBroadcast = broadcastCheckbox.checked;
   const delayMs = Math.max(100, Math.min(Number(cfgDelayInput.value) || 750, 5000));
-  const total = loadedRecipients.length;
+
+  // Build chunks from loadedRecipients
+  buildChunks();
+  const totalChunks = recipientChunks.length;
+  const totalRecipients = loadedRecipients.length;
 
   isSendingAborted = false;
   isSendingActive = true;
+  cooldownCancelled = false;
+  currentChunkIndex = 0;
+
   sendButton.disabled = true;
   sendButton.classList.add("hidden");
 
@@ -1236,118 +1296,149 @@ form.addEventListener("submit", async (e) => {
 
   progressContainer.classList.remove("hidden");
   progressBarFill.style.width = "0%";
-  progressText.textContent = `0 / ${total} processed`;
+  progressText.textContent = `0 / ${totalRecipients} processed`;
 
-  log(`Starting ${isBroadcast ? "BROADCAST" : "DRY RUN"} for ${total} recipient(s)...`, "sys");
+  log(`Starting ${isBroadcast ? "BROADCAST" : "SENDING"} for ${totalRecipients} recipient(s) in ${totalChunks} chunk(s) of up to ${CHUNK_SIZE}...`, "sys");
 
-  let sentCount = 0;
-  let failCount = 0;
+  let globalSent = 0;
+  let globalFail = 0;
 
-  for (let i = 0; i < total; i++) {
-    if (isSendingAborted) {
-      log(`⏹️ Sending halted by user. Processed ${i} of ${total} recipient(s).`, "warning");
-      break;
-    }
+  for (let chunkIdx = 0; chunkIdx < totalChunks; chunkIdx++) {
+    if (isSendingAborted || cooldownCancelled) break;
 
-    const rec = loadedRecipients[i];
-    const pct = Math.round(((i + 1) / total) * 100);
-    progressBarFill.style.width = `${pct}%`;
+    currentChunkIndex = chunkIdx;
+    updateChunkChipStates();
 
-    let singleAttachment = currentAttachment;
+    const chunk = recipientChunks[chunkIdx];
+    log(`── Chunk ${chunkIdx + 1}/${totalChunks} (${chunk.length} emails) ──`, "sys");
 
-    if (currentAttachment && currentAttachment.isHtmlTemplate) {
-      progressText.textContent = `Converting attachment for ${rec.email} (${i + 1}/${total})...`;
+    for (let i = 0; i < chunk.length; i++) {
+      if (isSendingAborted) {
+        log(`⏹️ Sending halted by user during chunk ${chunkIdx + 1}.`, "warning");
+        break;
+      }
+
+      const rec = chunk[i];
+      const globalIdx = chunkIdx * CHUNK_SIZE + i;
+      const pct = Math.round(((globalIdx + 1) / totalRecipients) * 100);
+      progressBarFill.style.width = `${pct}%`;
+
+      let singleAttachment = currentAttachment;
+
+      if (currentAttachment && currentAttachment.isHtmlTemplate) {
+        progressText.textContent = `Converting attachment for ${rec.email} (${globalIdx + 1}/${totalRecipients})...`;
+        try {
+          const { base64, mimeType } = await renderAndConvertRecipientAttachment(
+            currentAttachment.htmlSource,
+            currentAttachment.format,
+            rec,
+            subject
+          );
+          const recipientFilename = personalize(currentAttachment.name, rec);
+          singleAttachment = {
+            name: recipientFilename,
+            mimeType: mimeType,
+            base64: base64
+          };
+          log(`Converted ${currentAttachment.format.toUpperCase()} "${recipientFilename}" for <${rec.email}>`, "info");
+        } catch (convErr) {
+          log(`Attachment Conversion Error for <${rec.email}>: ${convErr.message}`, "error");
+          globalFail++;
+          continue;
+        }
+      }
+
+      if (isSendingAborted) {
+        log(`⏹️ Sending halted by user during chunk ${chunkIdx + 1}.`, "warning");
+        break;
+      }
+
+      progressText.textContent = `Chunk ${chunkIdx + 1}/${totalChunks} · Sending to ${rec.email} (${globalIdx + 1}/${totalRecipients})...`;
+
       try {
-        const { base64, mimeType } = await renderAndConvertRecipientAttachment(
-          currentAttachment.htmlSource,
-          currentAttachment.format,
-          rec,
-          subject
-        );
-        const recipientFilename = personalize(currentAttachment.name, rec);
-        singleAttachment = {
-          name: recipientFilename,
-          mimeType: mimeType,
-          base64: base64
+        const requestPayload = {
+          delay_ms: delayMs,
+          recipients: [rec],
+          subject,
+          message,
+          fromName: fromNameInput ? fromNameInput.value.trim() : "",
+          attachment: singleAttachment,
+          dryRun: !isBroadcast
         };
-        log(`Converted ${currentAttachment.format.toUpperCase()} "${recipientFilename}" for <${rec.email}>`, "info");
-      } catch (convErr) {
-        log(`Attachment Conversion Error for <${rec.email}>: ${convErr.message}`, "error");
-        failCount++;
-        continue;
-      }
-    }
 
-    if (isSendingAborted) {
-      log(`⏹️ Sending halted by user. Processed ${i} of ${total} recipient(s).`, "warning");
-      break;
-    }
+        const res = await fetch("/api/send", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(requestPayload),
+        });
 
-    progressText.textContent = `Sending to ${rec.email} (${i + 1}/${total})...`;
-
-    try {
-      const requestPayload = {
-        delay_ms: delayMs,
-        recipients: [rec],
-        subject,
-        message,
-        fromName: fromNameInput ? fromNameInput.value.trim() : "",
-        attachment: singleAttachment,
-        dryRun: !isBroadcast
-      };
-
-      const res = await fetch("/api/send", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(requestPayload),
-      });
-
-      const responseText = await res.text();
-      let data = {};
-      try {
-        data = JSON.parse(responseText);
-      } catch {
-        if (res.status === 413 || responseText.includes("Request Entity Too Large") || responseText.startsWith("Request En")) {
-          throw new Error("Payload size exceeds Vercel's 4.5 MB limit. Please use a smaller attachment file.");
+        const responseText = await res.text();
+        let data = {};
+        try {
+          data = JSON.parse(responseText);
+        } catch {
+          if (res.status === 413 || responseText.includes("Request Entity Too Large") || responseText.startsWith("Request En")) {
+            throw new Error("Payload size exceeds Vercel's 4.5 MB limit. Please use a smaller attachment file.");
+          }
+          throw new Error(`Server returned non-JSON error (${res.status}): ${responseText.slice(0, 100)}`);
         }
-        throw new Error(`Server returned non-JSON error (${res.status}): ${responseText.slice(0, 100)}`);
-      }
 
-      if (!res.ok) throw new Error(data.error || "Sending failed.");
+        if (!res.ok) throw new Error(data.error || "Sending failed.");
 
-      if (data.dryRun) {
-        const attInfo = singleAttachment ? ` [Attachment: ${singleAttachment.name}]` : "";
-        log(`DRY-RUN (${i + 1}/${total}): Validated recipient <${rec.email}>${attInfo}`, "dry");
-        sentCount++;
-      } else {
-        const resItem = data.results && data.results[0];
-        if (resItem && resItem.status === "sent") {
-          sentCount++;
+        if (data.dryRun) {
           const attInfo = singleAttachment ? ` [Attachment: ${singleAttachment.name}]` : "";
-          log(`SENT (${i + 1}/${total}) -> ${rec.email}${attInfo}`, "sent");
+          log(`DRY-RUN (${globalIdx + 1}/${totalRecipients}): Validated recipient <${rec.email}>${attInfo}`, "dry");
+          globalSent++;
         } else {
-          failCount++;
-          log(`FAILED (${i + 1}/${total}) -> ${rec.email}: ${resItem?.error || "Send rejected"}`, "error");
+          const resItem = data.results && data.results[0];
+          if (resItem && resItem.status === "sent") {
+            globalSent++;
+            const attInfo = singleAttachment ? ` [Attachment: ${singleAttachment.name}]` : "";
+            log(`SENT (${globalIdx + 1}/${totalRecipients}) -> ${rec.email}${attInfo}`, "sent");
+          } else {
+            globalFail++;
+            log(`FAILED (${globalIdx + 1}/${totalRecipients}) -> ${rec.email}: ${resItem?.error || "Send rejected"}`, "error");
+          }
+        }
+      } catch (err) {
+        globalFail++;
+        log(`FAILED (${globalIdx + 1}/${totalRecipients}) -> ${rec.email}: ${err.message}`, "error");
+      }
+
+      if (isSendingAborted) {
+        log(`⏹️ Sending halted by user during chunk ${chunkIdx + 1}.`, "warning");
+        break;
+      }
+
+      // Per-email delay within a chunk
+      if (i < chunk.length - 1 && isBroadcast && delayMs > 0) {
+        const checkInterval = 100;
+        let elapsed = 0;
+        while (elapsed < delayMs) {
+          if (isSendingAborted) break;
+          await new Promise((resolve) => setTimeout(resolve, Math.min(checkInterval, delayMs - elapsed)));
+          elapsed += checkInterval;
         }
       }
-    } catch (err) {
-      failCount++;
-      log(`FAILED (${i + 1}/${total}) -> ${rec.email}: ${err.message}`, "error");
     }
 
-    if (isSendingAborted) {
-      log(`⏹️ Sending halted by user. Processed ${i + 1} of ${total} recipient(s).`, "warning");
-      break;
-    }
+    // Mark this chunk as sent
+    currentChunkIndex = chunkIdx + 1;
+    updateChunkChipStates();
 
-    if (i < total - 1 && isBroadcast && delayMs > 0) {
-      const checkInterval = 100;
-      let elapsed = 0;
-      while (elapsed < delayMs) {
-        if (isSendingAborted) break;
-        await new Promise((resolve) => setTimeout(resolve, Math.min(checkInterval, delayMs - elapsed)));
-        elapsed += checkInterval;
+    log(`✓ Chunk ${chunkIdx + 1}/${totalChunks} complete. (${globalSent} sent, ${globalFail} failed so far)`, "sys");
+
+    // If there are more chunks and not aborted, show cooldown modal for 5 min
+    if (chunkIdx < totalChunks - 1 && !isSendingAborted && !cooldownCancelled) {
+      log(`⏳ Cooling down for 3 minutes before chunk ${chunkIdx + 2}...`, "sys");
+      progressText.textContent = `Waiting 3 min before chunk ${chunkIdx + 2}/${totalChunks}...`;
+
+      const shouldContinue = await showCooldownModal(chunkIdx + 1, totalChunks, chunk.length, recipientChunks[chunkIdx + 1].length);
+      if (!shouldContinue) {
+        log("⏹️ Remaining chunks cancelled by user.", "warning");
+        break;
       }
+      log(`Cooldown complete. Proceeding to chunk ${chunkIdx + 2}...`, "sys");
     }
   }
 
@@ -1357,14 +1448,84 @@ form.addEventListener("submit", async (e) => {
   if (stopButton) stopButton.classList.add("hidden");
   if (stopMiniButton) stopMiniButton.classList.add("hidden");
 
-  if (isSendingAborted) {
-    log(`⏹️ Sending process aborted by user: ${sentCount} ${isBroadcast ? "sent" : "validated"}, ${failCount} failed.`, "sys");
-    progressText.textContent = `Stopped (${sentCount} / ${total})`;
+  if (isSendingAborted || cooldownCancelled) {
+    log(`⏹️ Sending process stopped: ${globalSent} ${isBroadcast ? "sent" : "validated"}, ${globalFail} failed.`, "sys");
+    progressText.textContent = `Stopped (${globalSent} / ${totalRecipients})`;
   } else {
-    log(`Finished run: ${sentCount} ${isBroadcast ? "sent" : "validated"}, ${failCount} failed.`, "sys");
-    progressText.textContent = `Completed (${sentCount} / ${total})`;
+    log(`✅ All chunks finished: ${globalSent} ${isBroadcast ? "sent" : "validated"}, ${globalFail} failed.`, "sys");
+    progressText.textContent = `Completed (${globalSent} / ${totalRecipients})`;
   }
 });
+
+// Cooldown modal helper — returns a Promise<boolean> (true = continue, false = cancel)
+function showCooldownModal(chunkDone, totalChunks, sentCount, nextCount) {
+  return new Promise((resolve) => {
+    const modal = document.querySelector("#chunk-cooldown-modal");
+    const timerText = document.querySelector("#cooldown-timer-text");
+    const ringProgress = document.querySelector("#cooldown-ring-progress");
+    const chunkDoneEl = document.querySelector("#cooldown-chunk-done");
+    const chunkTotalEl = document.querySelector("#cooldown-chunk-total");
+    const sentCountEl = document.querySelector("#cooldown-sent-count");
+    const nextCountEl = document.querySelector("#cooldown-next-count");
+    const skipBtn = document.querySelector("#cooldown-skip-btn");
+    const cancelBtn = document.querySelector("#cooldown-cancel-btn");
+
+    if (chunkDoneEl) chunkDoneEl.textContent = chunkDone;
+    if (chunkTotalEl) chunkTotalEl.textContent = totalChunks;
+    if (sentCountEl) sentCountEl.textContent = sentCount;
+    if (nextCountEl) nextCountEl.textContent = nextCount;
+
+    const COOLDOWN_SECS = 180; // 3 minutes
+    const circumference = 2 * Math.PI * 45; // r=45
+    let remaining = COOLDOWN_SECS;
+
+    function updateDisplay() {
+      const mins = Math.floor(remaining / 60);
+      const secs = remaining % 60;
+      if (timerText) timerText.textContent = `${mins}:${secs.toString().padStart(2, "0")}`;
+      const offset = circumference * (1 - remaining / COOLDOWN_SECS);
+      if (ringProgress) ringProgress.style.strokeDashoffset = offset;
+    }
+
+    updateDisplay();
+    if (modal) modal.classList.remove("hidden");
+
+    cooldownTimerId = setInterval(() => {
+      remaining--;
+      updateDisplay();
+      if (remaining <= 0) {
+        clearInterval(cooldownTimerId);
+        cooldownTimerId = null;
+        if (modal) modal.classList.add("hidden");
+        resolve(true);
+      }
+    }, 1000);
+
+    function cleanup() {
+      if (cooldownTimerId) {
+        clearInterval(cooldownTimerId);
+        cooldownTimerId = null;
+      }
+      if (modal) modal.classList.add("hidden");
+      if (skipBtn) skipBtn.removeEventListener("click", onSkip);
+      if (cancelBtn) cancelBtn.removeEventListener("click", onCancel);
+    }
+
+    function onSkip() {
+      cleanup();
+      resolve(true);
+    }
+
+    function onCancel() {
+      cooldownCancelled = true;
+      cleanup();
+      resolve(false);
+    }
+
+    if (skipBtn) skipBtn.addEventListener("click", onSkip);
+    if (cancelBtn) cancelBtn.addEventListener("click", onCancel);
+  });
+}
 
 // 7. HTML CODE SIDE DRAWER
 function openHtmlCodeDrawer() {

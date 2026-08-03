@@ -684,7 +684,31 @@
     </div>
   </div>
 
+
+  <!-- CHUNK COOLDOWN MODAL -->
+  <div id="chunk-cooldown-modal" class="chunk-cooldown-overlay hidden">
+    <div class="chunk-cooldown-card">
+      <div class="cooldown-icon-ring">
+        <svg class="cooldown-ring-svg" viewBox="0 0 100 100">
+          <circle class="cooldown-ring-bg" cx="50" cy="50" r="45" />
+          <circle id="cooldown-ring-progress" class="cooldown-ring-fg" cx="50" cy="50" r="45" />
+        </svg>
+        <span id="cooldown-timer-text" class="cooldown-timer-text">3:00</span>
+      </div>
+      <h3 class="cooldown-title">Chunk <span id="cooldown-chunk-done">1</span> of <span id="cooldown-chunk-total">1</span> Sent ✓</h3>
+      <p class="cooldown-subtitle">Cooling down before next batch…</p>
+      <div class="cooldown-chunk-info">
+        <span id="cooldown-sent-count">16</span> emails sent &nbsp;·&nbsp; Next batch: <span id="cooldown-next-count">16</span> emails
+      </div>
+      <div class="cooldown-actions">
+        <button type="button" id="cooldown-skip-btn" class="btn-primary cooldown-skip-btn">Skip Wait & Send Next</button>
+        <button type="button" id="cooldown-cancel-btn" class="btn-secondary cooldown-cancel-btn">Cancel Remaining</button>
+      </div>
+    </div>
+  </div>
+
   <script src="app.js"></script>
+
 </body>
 
 </html>
