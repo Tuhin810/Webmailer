@@ -461,40 +461,39 @@
   </div>
 
   <!-- HTML CODE EDITOR RIGHT SIDE DRAWER OVERLAY -->
+  <!-- HTML SOURCE CODE SIDE PANEL DRAWER (Minimalist Editor) -->
   <div id="html-code-drawer" class="drawer-overlay hidden" aria-hidden="true">
     <div class="drawer-backdrop" id="html-code-backdrop" onclick="closeHtmlCodeDrawer()"></div>
-    <div class="side-panel-drawer">
-      <div class="drawer-header">
-        <div class="drawer-title-group">
-          <span class="drawer-icon" style="color: #60a5fa; background: rgba(59, 130, 246, 0.15);">&lt;/&gt;</span>
-          <h3>HTML Source Editor</h3>
+    <div class="side-panel-drawer minimalist-editor-drawer">
+
+      <!-- Minimalist Header matching Screenshot 2 -->
+      <div class="minimal-editor-header">
+        <span class="minimal-editor-title">HTML Source Editor</span>
+        <div class="minimal-editor-tools">
+          <button type="button" class="minimal-tool-btn" title="Quick HTML tags"
+            onclick="toggleMinimalQuickTags()">⚡</button>
+          <button type="button" class="minimal-tool-btn" title="Settings">⚙</button>
+          <button type="button" id="close-html-code-btn" class="minimal-tool-btn minimal-close-btn"
+            onclick="closeHtmlCodeDrawer()" title="Close side drawer">✕</button>
         </div>
-        <button type="button" id="close-html-code-btn" class="drawer-close-btn" onclick="closeHtmlCodeDrawer()"
-          title="Close side drawer">✕</button>
       </div>
 
-      <p class="drawer-subtitle">Edit the raw HTML source code. Changes update live in your visual email composer.</p>
 
-      <div class="code-quick-tags">
-        <button type="button" class="tag-insert-btn" onclick="insertTagIntoCode('<p></p>')">&lt;p&gt;</button>
-        <button type="button" class="tag-insert-btn" onclick="insertTagIntoCode('<b></b>')">&lt;b&gt;</button>
-        <button type="button" class="tag-insert-btn" onclick="insertTagIntoCode('<i></i>')">&lt;i&gt;</button>
-        <button type="button" class="tag-insert-btn"
-          onclick="insertTagIntoCode('<a href=\'https://\'>Link</a>')">&lt;a&gt;</button>
-        <button type="button" class="tag-insert-btn" onclick="insertTagIntoCode('<h1></h1>')">&lt;h1&gt;</button>
-        <button type="button" class="tag-insert-btn" onclick="insertTagIntoCode('<br>')">&lt;br&gt;</button>
-        <button type="button" class="tag-insert-btn" onclick="insertTagIntoCode('{name}')">{name}</button>
-        <button type="button" class="tag-insert-btn" onclick="insertTagIntoCode('{email}')">{email}</button>
+
+      <!-- Minimalist Code Editor Body with Line Numbers Gutter -->
+      <div class="minimal-editor-body">
+        <div id="drawer-line-numbers" class="minimal-line-numbers">
+          <div>1</div>
+        </div>
+        <textarea id="drawer-html-input" class="minimal-textarea"
+          placeholder="Write or paste your HTML code here... e.g. <p>Hello <b>{name}</b></p>"
+          spellcheck="false"></textarea>
       </div>
 
-      <div class="drawer-code-wrapper">
-        <textarea id="drawer-html-input" class="drawer-html-textarea"
-          placeholder="Write or paste your HTML code here... e.g. <p>Hello <b>{name}</b></p>"></textarea>
-      </div>
-
-      <div class="drawer-footer-actions">
-        <button type="button" class="btn-secondary" onclick="closeHtmlCodeDrawer()">Cancel</button>
-        <button type="button" class="btn-primary" onclick="syncAndCloseHtmlCodeDrawer()">Apply to Email</button>
+      <!-- Minimalist Footer Actions -->
+      <div class="minimal-editor-footer">
+        <button type="button" class="btn-minimal-cancel" onclick="closeHtmlCodeDrawer()">Cancel</button>
+        <button type="button" class="btn-minimal-apply" onclick="syncAndCloseHtmlCodeDrawer()">Apply to Email</button>
       </div>
     </div>
   </div>

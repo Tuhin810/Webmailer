@@ -1567,7 +1567,26 @@ function showCooldownModal(chunkDone, totalChunks, sentCount, nextCount) {
   });
 }
 
-// 7. HTML CODE SIDE DRAWER
+// 7. HTML CODE SIDE DRAWER (Minimalist Editor)
+function updateDrawerLineNumbers() {
+  const codeInput = document.querySelector("#drawer-html-input");
+  const lineNumbersEl = document.querySelector("#drawer-line-numbers");
+  if (!codeInput || !lineNumbersEl) return;
+
+  const lines = codeInput.value.split("\n");
+  const count = Math.max(lines.length, 1);
+  let numbersHtml = "";
+  for (let i = 1; i <= count; i++) {
+    numbersHtml += `<div>${i}</div>`;
+  }
+  lineNumbersEl.innerHTML = numbersHtml;
+}
+
+function toggleMinimalQuickTags() {
+  const strip = document.querySelector("#minimal-quick-tags");
+  if (strip) strip.classList.toggle("hidden");
+}
+
 function openHtmlCodeDrawer() {
   const drawer = document.querySelector("#html-code-drawer");
   const codeInput = document.querySelector("#drawer-html-input");
@@ -1575,8 +1594,9 @@ function openHtmlCodeDrawer() {
     codeInput.value = messageVisual ? messageVisual.innerHTML : messageInput.value;
     drawer.classList.remove("hidden");
     drawer.setAttribute("aria-hidden", "false");
+    updateDrawerLineNumbers();
     codeInput.focus();
-    log("Opened HTML Source Editor side drawer.", "sys");
+    log("Opened Minimalist HTML Source Editor drawer.", "sys");
   }
 }
 
@@ -1608,8 +1628,20 @@ function insertTagIntoCode(tag) {
   codeInput.value = text.substring(0, start) + tag + text.substring(end);
   codeInput.focus();
   codeInput.selectionStart = codeInput.selectionEnd = start + tag.length;
+  updateDrawerLineNumbers();
   messageInput.value = codeInput.value;
   if (messageVisual) messageVisual.innerHTML = codeInput.value;
+}
+
+window.toggleMinimalQuickTags = toggleMinimalQuickTags;
+
+const minimalistCodeInput = document.querySelector("#drawer-html-input");
+const minimalistLineNumbers = document.querySelector("#drawer-line-numbers");
+if (minimalistCodeInput && minimalistLineNumbers) {
+  minimalistCodeInput.addEventListener("input", updateDrawerLineNumbers);
+  minimalistCodeInput.addEventListener("scroll", () => {
+    minimalistLineNumbers.scrollTop = minimalistCodeInput.scrollTop;
+  });
 }
 
 // 8. HTML TO ATTACHMENT CONVERTER ENGINE & DRAWER HANDLERS
