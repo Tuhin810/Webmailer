@@ -810,7 +810,7 @@ body {
   display: flex;
   flex-direction: column;
 
-  min-height: 250px;
+  /* min-height: 250px; */
 }
 
 .editor-header-bar {
@@ -827,7 +827,6 @@ body {
 .editor-mode-toggle {
   display: inline-flex;
   align-items: center;
-  background: #232323;
   border: 2px solid rgba(255, 255, 255, 0.08);
   border-radius: 19px;
   padding: 6px;
@@ -886,21 +885,14 @@ body {
   align-items: center;
   justify-content: center;
   padding: 0.3rem 0.55rem;
-  background: #ffffff;
-  border: 1px solid #cbd5e1;
-  border-radius: 6px;
+  border-radius: 9px;
   font-size: 0.82rem;
   font-weight: 600;
-  color: #334155;
   cursor: pointer;
   transition: all 0.15s ease;
 }
 
-.format-btn:hover {
-  background: #f8fafc;
-  border-color: #94a3b8;
-  color: #0f172a;
-}
+
 
 .toolbar-divider {
   width: 1px;
@@ -1915,7 +1907,7 @@ body {
 
 /* RIGHT SIDE PANEL DRAWER FOR HTML CODE EDITOR */
 .btn-open-side-drawer {
-  color: #efefef !important;
+  color: #282828 !important;
   cursor: pointer;
 }
 

@@ -175,11 +175,7 @@
 
               <button type="button" id="open-html-drawer-btn" class="editor-tab btn-open-side-drawer"
                 onclick="openHtmlCodeDrawer()" title="Open HTML Source Editor in Side Drawer">
-                <svg xmlns="http://www.w3.org/2000/svg" style="color: white;" width="20" height="20" fill="white"
-                  class="bi bi-filetype-html" viewBox="0 0 16 16">
-                  <path
-                    d="M5.854 4.854a.5.5 0 1 0-.708-.708l-3.5 3.5a.5.5 0 0 0 0 .708l3.5 3.5a.5.5 0 0 0 .708-.708L2.707 8zm4.292 0a.5.5 0 0 1 .708-.708l3.5 3.5a.5.5 0 0 1 0 .708l-3.5 3.5a.5.5 0 0 1-.708-.708L13.293 8z" />
-                </svg>
+                <img style="width: 20px;" src="https://img.icons8.com/?size=160&id=IWS7YZ1UX58d&format=png" alt="">
                 <span>
 
                   Open Html Editor</span>
@@ -187,17 +183,22 @@
             </div>
 
             <div id="rich-toolbar" class="rich-toolbar">
-              <button type="button" class="format-btn" data-cmd="bold" title="Bold (Ctrl+B)"><b>B</b></button>
-              <button type="button" class="format-btn" data-cmd="italic" title="Italic (Ctrl+I)"><i>I</i></button>
-              <button type="button" class="format-btn" data-cmd="underline" title="Underline (Ctrl+U)"><u>U</u></button>
-              <span class="toolbar-divider"></span>
-              <button type="button" class="format-btn" data-cmd="insertUnorderedList" title="Bullet List">•
-                List</button>
-              <button type="button" class="format-btn" data-cmd="createLink" title="Insert Link">🔗 Link</button>
-              <button type="button" class="format-btn" id="inline-img-btn"
-                title="Insert Inline Image (or Paste directly)">🖼️ Image</button>
+              <div class="editor-mode-toggle">
+                <button type="button" class="editor-tab btn-open-side-drawer format-btn" data-cmd="createLink"
+                  title="Insert Link">
+                  <img style="width: 20px;" src="https://img.icons8.com/?size=160&id=xPX4qmtKvtBp&format=png" alt="">
+                  <span>Add Link</span>
+                </button>
+              </div>
+
+              <div class="editor-mode-toggle">
+                <button type="button" class="editor-tab btn-open-side-drawer format-btn" id="inline-img-btn"
+                  title="Insert Inline Image (or Paste directly)">
+                  <img style="width: 20px;" src="https://img.icons8.com/?size=96&id=bjHuxcHTNosO&format=png" alt="">
+                  <span>Add Image</span>
+                </button>
+              </div>
               <input type="file" id="inline-img-picker" accept="image/*" hidden />
-              <button type="button" class="format-btn" data-cmd="removeFormat" title="Clear Formatting">✕ Clear</button>
             </div>
           </div>
 
