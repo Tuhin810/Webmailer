@@ -1076,7 +1076,7 @@ body {
 .composer-footer {
   position: sticky;
   bottom: 0;
-  background: #232323;
+  background: #171717;
   z-index: 40;
   display: flex;
   align-items: center;
@@ -1296,7 +1296,7 @@ body {
 }
 
 .btn-send-email {
-  background: var(--accent-orange);
+  background: #029925;
   color: white;
   border: none;
   padding: 0.7rem 3.45rem;
@@ -1380,13 +1380,17 @@ body {
 /* ==========================================================================
    RIGHT PANE: LIVE TERMINAL WINDOW
    ========================================================================== */
+/* ==========================================================================
+   RIGHT PANE: LIVE TERMINAL WINDOW (Premium Minimalist CLI Theme)
+   ========================================================================== */
 .terminal-pane {
-  background: var(--bg-terminal);
-  color: var(--text-terminal);
+  background: #191919;
+  color: #e4e4e7;
   display: flex;
   flex-direction: column;
   height: 100vh;
-  border-left: 1px solid var(--border-terminal);
+  border-left: 1px solid #18181b;
+  font-family: 'JetBrains Mono', 'Fira Code', 'SF Mono', monospace;
 }
 
 .terminal-header {
@@ -1394,8 +1398,9 @@ body {
   align-items: center;
   justify-content: space-between;
   padding: 0.85rem 1.25rem;
-  background: var(--bg-terminal-header);
-  border-bottom: 1px solid var(--border-terminal);
+  background: #000000;
+  border-bottom: 1px solid #18181b;
+  user-select: none;
 }
 
 .mac-dots {
@@ -1425,11 +1430,15 @@ body {
   display: flex;
   align-items: center;
   gap: 0.45rem;
-  font-family: var(--font-mono);
+  font-family: 'JetBrains Mono', monospace;
   font-size: 0.78rem;
   font-weight: 600;
-  letter-spacing: 0.05em;
-  color: #8b949e;
+  letter-spacing: 0.04em;
+  color: #a1a1aa;
+}
+
+.terminal-title .terminal-icon {
+  color: #eab308;
 }
 
 .terminal-actions {
@@ -1442,12 +1451,12 @@ body {
   display: inline-flex;
   align-items: center;
   gap: 0.4rem;
-  background: rgba(35, 134, 54, 0.15);
-  border: 1px solid rgba(46, 160, 67, 0.4);
-  color: #3fb950;
-  padding: 0.2rem 0.55rem;
+  background: rgba(34, 197, 94, 0.1);
+  border: 1px solid rgba(34, 197, 94, 0.25);
+  color: #22c55e;
+  padding: 0.2rem 0.6rem;
   border-radius: 12px;
-  font-family: var(--font-mono);
+  font-family: 'JetBrains Mono', monospace;
   font-size: 0.7rem;
   font-weight: 600;
 }
@@ -1456,8 +1465,8 @@ body {
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: #3fb950;
-  box-shadow: 0 0 8px #3fb950;
+  background: #22c55e;
+  box-shadow: 0 0 8px #22c55e;
   animation: pulse 2s infinite;
 }
 
@@ -1476,30 +1485,33 @@ body {
 }
 
 .terminal-mini-btn {
-  background: #21262d;
-  border: 1px solid #30363d;
-  color: #c9d1d9;
-  font-family: var(--font-mono);
+  background: #18181b;
+  border: 1px solid #27272a;
+  color: #a1a1aa;
+  font-family: 'JetBrains Mono', monospace;
   font-size: 0.72rem;
-  padding: 0.2rem 0.55rem;
-  border-radius: 4px;
+  padding: 0.25rem 0.65rem;
+  border-radius: 6px;
   cursor: pointer;
+  transition: all 0.15s ease;
 }
 
 .terminal-mini-btn:hover {
-  background: #30363d;
+  background: #27272a;
+  color: #ffffff;
 }
 
-/* Progress Bar Container */
+/* Progress Bar Container (Minimal CLI Progress) */
 .progress-container {
-  background: #161b22;
-  border-bottom: 1px solid var(--border-terminal);
-  height: 28px;
+  background: #09090b;
+  border-bottom: 1px solid #18181b;
+  height: 32px;
   position: relative;
   overflow: hidden;
   display: flex;
   align-items: center;
-  justify-content: center;
+  justify-content: space-between;
+  padding: 0 1rem;
 }
 
 .progress-container.hidden {
@@ -1511,19 +1523,39 @@ body {
   top: 0;
   left: 0;
   bottom: 0;
-  background: linear-gradient(90deg, #2563eb, #3b82f6);
+  background: linear-gradient(90deg, #10b981, #22c55e);
   width: 0%;
   transition: width 0.3s ease;
+  opacity: 0.85;
 }
 
 .progress-text {
   position: relative;
   z-index: 2;
-  font-family: var(--font-mono);
-  font-size: 0.72rem;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.75rem;
   font-weight: 600;
   color: #ffffff;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
+}
+
+.btn-stop-mini {
+  position: relative;
+  z-index: 2;
+  background: #ef4444;
+  color: #ffffff;
+  border: none;
+  padding: 0.2rem 0.65rem;
+  border-radius: 6px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  margin-left: 0.6rem;
+  transition: all 0.15s ease;
+}
+
+.btn-stop-mini:hover {
+  background: #dc2626;
 }
 
 /* Terminal Console Viewport */
@@ -1531,65 +1563,132 @@ body {
   flex: 1;
   padding: 1.25rem;
   overflow-y: auto;
-  font-family: var(--font-mono);
-  font-size: 0.83rem;
-  line-height: 1.6;
+  font-family: 'JetBrains Mono', 'Fira Code', 'SF Mono', monospace;
+  font-size: 0.84rem;
+  line-height: 1.7;
+  background: #181818;
 }
 
 #terminal {
   white-space: pre-wrap;
   word-break: break-word;
-  color: #c9d1d9;
+  color: #e4e4e7;
+  font-family: inherit;
 }
 
-/* Syntax highlighted log lines */
+/* Syntax Highlighted CLI Log Lines */
 .log-line {
-  margin-bottom: 0.25rem;
+  display: block;
+  margin-bottom: 0.35rem;
+  line-height: 1.6;
+  font-family: 'JetBrains Mono', 'Fira Code', 'SF Mono', monospace;
+  font-size: 0.83rem;
+  word-break: break-word;
 }
 
 .log-time {
-  color: #8b949e;
+  color: #52525b;
+  font-size: 0.78rem;
+  white-space: nowrap;
 }
 
 .log-sys {
-  color: #58a6ff;
+  color: #38bdf8;
   font-weight: 600;
+  white-space: nowrap;
 }
 
 .log-info {
-  color: #7ee787;
+  color: #a1a1aa;
+  white-space: nowrap;
 }
 
 .log-csv {
-  color: #d2a8ff;
+  color: #c084fc;
   font-weight: 600;
+  white-space: nowrap;
 }
 
 .log-sent {
-  color: #3fb950;
+  color: #22c55e;
   font-weight: 600;
+  white-space: nowrap;
 }
 
 .log-dry {
-  color: #e3b341;
+  color: #facc15;
   font-weight: 600;
+  white-space: nowrap;
 }
 
 .log-error {
-  color: #ff7b72;
+  color: #f87171;
   font-weight: 600;
+  white-space: nowrap;
+}
+
+.log-warning {
+  color: #fb923c;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.log-text {
+  color: #e4e4e7;
+}
+
+/* CLI Card / Box Styling for Batch Info */
+.cli-box {
+  background: #000000;
+  border: 1px solid #27272a;
+  border-radius: 8px;
+  padding: 0.85rem 1rem;
+  margin: 0.5rem 0;
+  font-family: inherit;
+}
+
+.cli-box-title {
+  font-weight: 700;
+  color: #ffffff;
+  margin-bottom: 0.5rem;
+  display: inline-block;
+  background: #27272a;
+  padding: 0.1rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.78rem;
+}
+
+.cli-box-row {
+  display: flex;
+  gap: 1.5rem;
+  margin-bottom: 0.3rem;
+  font-size: 0.82rem;
+}
+
+.cli-box-label {
+  color: #71717a;
+  width: 100px;
+}
+
+.cli-box-val {
+  color: #e4e4e7;
+  font-weight: 600;
+}
+
+.cli-box-val.running {
+  color: #22c55e;
 }
 
 .terminal-footer {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0.6rem 1.25rem;
-  background: var(--bg-terminal-header);
-  border-top: 1px solid var(--border-terminal);
-  font-family: var(--font-mono);
+  padding: 0.65rem 1.25rem;
+  background: #000000;
+  border-top: 1px solid #18181b;
+  font-family: 'JetBrains Mono', monospace;
   font-size: 0.72rem;
-  color: #8b949e;
+  color: #71717a;
 }
 
 /* ==========================================================================

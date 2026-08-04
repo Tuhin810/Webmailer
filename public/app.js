@@ -152,21 +152,30 @@ function updateAttachmentFilenameFromSubject() {
   }
 }
 
-// Log function with timestamp and formatting
+// Log function with timestamp and formatting (CLI Style)
 function log(msg, type = "info") {
   const time = new Date().toLocaleTimeString();
   const line = document.createElement("div");
-  line.className = "log-line";
+  line.className = `log-line log-type-${type}`;
 
   let prefix = "";
-  if (type === "sys") prefix = `<span class="log-sys">[SYS]</span> `;
-  else if (type === "csv") prefix = `<span class="log-csv">[CSV]</span> `;
-  else if (type === "sent") prefix = `<span class="log-sent">[SENT]</span> `;
-  else if (type === "dry") prefix = `<span class="log-dry">[DRY-RUN]</span> `;
-  else if (type === "error") prefix = `<span class="log-error">[ERROR]</span> `;
-  else prefix = `<span class="log-info">[INFO]</span> `;
+  if (type === "sys") {
+    prefix = `<span class="log-time">[${time}]</span> <span class="log-sys">[SYS]</span> `;
+  } else if (type === "csv") {
+    prefix = `<span class="log-time">[${time}]</span> <span class="log-csv">[CSV]</span> `;
+  } else if (type === "sent") {
+    prefix = `<span class="log-time">[${time}]</span> <span class="log-sent">✓ [SENT]</span> `;
+  } else if (type === "dry") {
+    prefix = `<span class="log-time">[${time}]</span> <span class="log-dry">✓ [DRY-RUN]</span> `;
+  } else if (type === "error") {
+    prefix = `<span class="log-time">[${time}]</span> <span class="log-error">✖ [ERROR]</span> `;
+  } else if (type === "warning") {
+    prefix = `<span class="log-time">[${time}]</span> <span class="log-warning">⚡ [WARN]</span> `;
+  } else {
+    prefix = `<span class="log-time">[${time}]</span> <span class="log-info">✓ [INFO]</span> `;
+  }
 
-  line.innerHTML = `<span class="log-time">[${time}]</span> ${prefix}${escapeHtml(msg)}`;
+  line.innerHTML = `${prefix}<span class="log-text">${escapeHtml(msg)}</span>`;
   terminal.appendChild(line);
   terminal.scrollTop = terminal.scrollHeight;
 }
