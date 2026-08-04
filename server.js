@@ -113,36 +113,114 @@ async function accessToken(request) {
 
 function safeHeader(value) { return String(value).replace(/[\r\n]+/g, " "); }
 function isHtmlBody(str) { return /<[a-z][\s\S]*>/i.test(str); }
+
+function extractInlineDataImages(html) {
+  const inlineImages = [];
+  let count = 0;
+  const processedHtml = html.replace(/src=["'](data:image\/([a-zA-Z0-9+\-]+);base64,([^"']+))["']/gi, (match, fullDataUrl, mimeSubtype, base64Data) => {
+    count++;
+    const cid = `inline-img-${count}-${crypto.randomBytes(4).toString("hex")}`;
+    const cleanBase64 = base64Data.replace(/\s+/g, "");
+    inlineImages.push({
+      cid,
+      mimeType: `image/${mimeSubtype}`,
+      base64: cleanBase64
+    });
+    return `src="cid:${cid}"`;
+  });
+  return { html: processedHtml, inlineImages };
+}
+
 function makeRawEmail({ from, to, subject, message, attachment }) {
   const headers = [`From: ${safeHeader(from)}`, `To: ${safeHeader(to)}`, `Subject: ${safeHeader(subject)}`, "MIME-Version: 1.0"];
   const formattedMessage = isHtmlBody(message) ? message : message.replace(/\r?\n/g, "<br>");
-  const contentType = "text/html; charset=UTF-8";
-  if (!attachment || !attachment.base64) {
-    return Buffer.from(`${headers.join("\r\n")}\r\nContent-Type: ${contentType}\r\nContent-Transfer-Encoding: 8bit\r\n\r\n${formattedMessage}`, "utf8").toString("base64url");
+  
+  const { html: htmlBody, inlineImages } = isHtmlBody(formattedMessage) ? extractInlineDataImages(formattedMessage) : { html: formattedMessage, inlineImages: [] };
+
+  const hasAttachment = Boolean(attachment && attachment.base64 && String(attachment.base64).replace(/^data:[^;]+;base64,/, "").replace(/\s+/g, ""));
+  const hasInline = inlineImages.length > 0;
+
+  if (!hasAttachment && !hasInline) {
+    return Buffer.from(`${headers.join("\r\n")}\r\nContent-Type: text/html; charset=UTF-8\r\nContent-Transfer-Encoding: 8bit\r\n\r\n${htmlBody}`, "utf8").toString("base64url");
   }
-  const cleanBase64 = String(attachment.base64).replace(/^data:[^;]+;base64,/, "").replace(/\s+/g, "");
-  if (!cleanBase64) {
-    return Buffer.from(`${headers.join("\r\n")}\r\nContent-Type: ${contentType}\r\nContent-Transfer-Encoding: 8bit\r\n\r\n${formattedMessage}`, "utf8").toString("base64url");
+
+  const relatedBoundary = `related-${crypto.randomBytes(12).toString("hex")}`;
+  const mixedBoundary = `mixed-${crypto.randomBytes(12).toString("hex")}`;
+
+  function buildRelatedPart(boundary) {
+    const parts = [
+      `Content-Type: multipart/related; boundary="${boundary}"`,
+      "",
+      `--${boundary}`,
+      "Content-Type: text/html; charset=UTF-8",
+      "Content-Transfer-Encoding: 8bit",
+      "",
+      htmlBody
+    ];
+    for (const img of inlineImages) {
+      const imgData = img.base64.replace(/.{1,76}/g, "$&\r\n");
+      parts.push(
+        `--${boundary}`,
+        `Content-Type: ${safeHeader(img.mimeType)}; name="${img.cid}"`,
+        "Content-Transfer-Encoding: base64",
+        `Content-ID: <${img.cid}>`,
+        "Content-Disposition: inline",
+        "",
+        imgData
+      );
+    }
+    parts.push(`--${boundary}--`);
+    return parts.join("\r\n");
   }
-  const boundary = `mailer-${crypto.randomBytes(12).toString("hex")}`;
-  const attachmentData = cleanBase64.replace(/.{1,76}/g, "$&\r\n");
+
+  if (!hasAttachment && hasInline) {
+    const body = [
+      headers.join("\r\n"),
+      buildRelatedPart(relatedBoundary)
+    ].join("\r\n");
+    return Buffer.from(body, "utf8").toString("base64url");
+  }
+
+  const cleanAttBase64 = String(attachment.base64).replace(/^data:[^;]+;base64,/, "").replace(/\s+/g, "");
+  const attachmentData = cleanAttBase64.replace(/.{1,76}/g, "$&\r\n");
   const safeFilename = safeHeader(attachment.name || "attachment").replace(/"/g, "'");
+  const attMime = safeHeader(attachment.mimeType || "application/octet-stream");
+
+  if (hasAttachment && !hasInline) {
+    const body = [
+      headers.join("\r\n"),
+      `Content-Type: multipart/mixed; boundary="${mixedBoundary}"`,
+      "",
+      `--${mixedBoundary}`,
+      "Content-Type: text/html; charset=UTF-8",
+      "Content-Transfer-Encoding: 8bit",
+      "",
+      htmlBody,
+      `--${mixedBoundary}`,
+      `Content-Type: ${attMime}; name="${safeFilename}"`,
+      "Content-Transfer-Encoding: base64",
+      `Content-Disposition: attachment; filename="${safeFilename}"`,
+      "",
+      attachmentData,
+      `--${mixedBoundary}--`,
+      ""
+    ].join("\r\n");
+    return Buffer.from(body, "utf8").toString("base64url");
+  }
+
   const body = [
     headers.join("\r\n"),
-    `Content-Type: multipart/mixed; boundary="${boundary}"`,
+    `Content-Type: multipart/mixed; boundary="${mixedBoundary}"`,
     "",
-    `--${boundary}`,
-    `Content-Type: ${contentType}`,
-    "Content-Transfer-Encoding: 8bit",
-    "",
-    formattedMessage,
-    `--${boundary}`,
-    `Content-Type: ${safeHeader(attachment.mimeType || "application/octet-stream")}; name="${safeFilename}"`,
+    `--${mixedBoundary}`,
+    buildRelatedPart(relatedBoundary),
+    `--${mixedBoundary}`,
+    `Content-Type: ${attMime}; name="${safeFilename}"`,
     "Content-Transfer-Encoding: base64",
     `Content-Disposition: attachment; filename="${safeFilename}"`,
     "",
     attachmentData,
-    `--${boundary}--`,
+    `--${mixedBoundary}--`,
     ""
   ].join("\r\n");
   return Buffer.from(body, "utf8").toString("base64url");
@@ -160,24 +238,44 @@ async function handleSend(request, response) {
   const { token, session } = await accessToken(request);
   const fromHeader = rawFromName ? `"${safeHeader(rawFromName).replace(/"/g, "'")}" <${safeHeader(session.email)}>` : safeHeader(session.email);
   const results = [];
-  for (const recipient of recipients) {
-    try {
-      if (!recipient?.email || !String(recipient.email).includes("@")) throw new Error("Invalid recipient email.");
-      let recipientAttachment = recipient.attachment || data.attachment;
-      if (recipientAttachment) {
-        recipientAttachment = {
-          ...recipientAttachment,
-          name: personalize(recipientAttachment.name || "Attachment", recipient)
-        };
+  const CONCURRENCY = 4;
+
+  for (let i = 0; i < recipients.length; i += CONCURRENCY) {
+    const batch = recipients.slice(i, i + CONCURRENCY);
+    const batchPromises = batch.map(async (recipient) => {
+      try {
+        if (!recipient?.email || !String(recipient.email).includes("@")) throw new Error("Invalid recipient email.");
+        let recipientAttachment = recipient.attachment || data.attachment;
+        if (recipientAttachment) {
+          recipientAttachment = {
+            ...recipientAttachment,
+            name: personalize(recipientAttachment.name || "Attachment", recipient)
+          };
+        }
+        const recipientName = recipient.name ? personalize(recipient.name, recipient).trim() : "";
+        const toHeader = recipientName ? `"${safeHeader(recipientName).replace(/"/g, "'")}" <${safeHeader(recipient.email)}>` : safeHeader(recipient.email);
+        const raw = makeRawEmail({ from: fromHeader, to: toHeader, subject: personalize(subject, recipient), message: personalize(message, recipient), attachment: recipientAttachment });
+        const sent = await fetch("https://gmail.googleapis.com/gmail/v1/users/me/messages/send", {
+          method: "POST",
+          headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+          body: JSON.stringify({ raw })
+        });
+        if (!sent.ok) {
+          const error = await sent.json();
+          throw new Error(error.error?.message || "Gmail rejected this message.");
+        }
+        return { email: recipient.email, status: "sent" };
+      } catch (error) {
+        return { email: recipient?.email || "unknown", status: "failed", error: error.message };
       }
-      const recipientName = recipient.name ? personalize(recipient.name, recipient).trim() : "";
-      const toHeader = recipientName ? `"${safeHeader(recipientName).replace(/"/g, "'")}" <${safeHeader(recipient.email)}>` : safeHeader(recipient.email);
-      const raw = makeRawEmail({ from: fromHeader, to: toHeader, subject: personalize(subject, recipient), message: personalize(message, recipient), attachment: recipientAttachment });
-      const sent = await fetch("https://gmail.googleapis.com/gmail/v1/users/me/messages/send", { method: "POST", headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" }, body: JSON.stringify({ raw }) });
-      if (!sent.ok) { const error = await sent.json(); throw new Error(error.error?.message || "Gmail rejected this message."); }
-      results.push({ email: recipient.email, status: "sent" });
-    } catch (error) { results.push({ email: recipient?.email || "unknown", status: "failed", error: error.message }); }
-    if (recipients.indexOf(recipient) < recipients.length - 1) await wait(delayMs);
+    });
+
+    const batchResults = await Promise.all(batchPromises);
+    results.push(...batchResults);
+
+    if (i + CONCURRENCY < recipients.length) {
+      await wait(delayMs);
+    }
   }
   sendJson(response, 200, { dryRun: false, results });
 }

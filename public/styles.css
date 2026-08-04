@@ -809,8 +809,8 @@ body {
   flex: 1;
   display: flex;
   flex-direction: column;
-  margin-top: 1rem;
-  min-height: 220px;
+
+  min-height: 250px;
 }
 
 .editor-header-bar {
@@ -827,10 +827,10 @@ body {
 .editor-mode-toggle {
   display: inline-flex;
   align-items: center;
-  background: #1c182b;
+  background: #232323;
   border: 2px solid rgba(255, 255, 255, 0.08);
-  border-radius: 9999px;
-  padding: 4px;
+  border-radius: 19px;
+  padding: 6px;
   gap: 4px;
   box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.3);
 }
@@ -1915,9 +1915,7 @@ body {
 
 /* RIGHT SIDE PANEL DRAWER FOR HTML CODE EDITOR */
 .btn-open-side-drawer {
-  background: #ddd6fe !important;
-  color: #000000 !important;
-  border: 1px solid #bfdbfe !important;
+  color: #efefef !important;
   cursor: pointer;
 }
 

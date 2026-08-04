@@ -1014,6 +1014,57 @@ if (messageVisual) {
     messageInput.value = messageVisual.innerHTML;
     saveDraft();
   });
+
+  // Direct Clipboard Image Paste Handler (Cmd+V / Ctrl+V or Screenshot Paste)
+  messageVisual.addEventListener("paste", (e) => {
+    const items = (e.clipboardData || e.originalEvent?.clipboardData)?.items;
+    if (!items) return;
+
+    for (const item of items) {
+      if (item.type.indexOf("image") === 0) {
+        e.preventDefault();
+        const file = item.getAsFile();
+        if (!file) continue;
+
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          const base64Data = event.target.result;
+          document.execCommand("insertImage", false, base64Data);
+          messageInput.value = messageVisual.innerHTML;
+          saveDraft();
+          log(`Pasted image into composer (${(file.size / 1024).toFixed(1)} KB).`, "info");
+        };
+        reader.readAsDataURL(file);
+        break;
+      }
+    }
+  });
+}
+
+// Inline Image Button in Toolbar
+const inlineImgBtn = document.querySelector("#inline-img-btn");
+const inlineImgPicker = document.querySelector("#inline-img-picker");
+if (inlineImgBtn && inlineImgPicker) {
+  inlineImgBtn.addEventListener("click", () => {
+    inlineImgPicker.click();
+  });
+
+  inlineImgPicker.addEventListener("change", (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const base64Data = event.target.result;
+      messageVisual.focus();
+      document.execCommand("insertImage", false, base64Data);
+      messageInput.value = messageVisual.innerHTML;
+      saveDraft();
+      log(`Inserted image "${file.name}" into composer.`, "info");
+      inlineImgPicker.value = "";
+    };
+    reader.readAsDataURL(file);
+  });
 }
 
 if (messageInput) {
@@ -1312,18 +1363,14 @@ form.addEventListener("submit", async (e) => {
     const chunk = recipientChunks[chunkIdx];
     log(`── Chunk ${chunkIdx + 1}/${totalChunks} (${chunk.length} emails) ──`, "sys");
 
-    for (let i = 0; i < chunk.length; i++) {
-      if (isSendingAborted) {
-        log(`⏹️ Sending halted by user during chunk ${chunkIdx + 1}.`, "warning");
-        break;
-      }
+    // Prepare chunk payload (with personalized attachments if needed)
+    const chunkRecipients = [];
 
+    for (let i = 0; i < chunk.length; i++) {
+      if (isSendingAborted) break;
       const rec = chunk[i];
       const globalIdx = chunkIdx * CHUNK_SIZE + i;
-      const pct = Math.round(((globalIdx + 1) / totalRecipients) * 100);
-      progressBarFill.style.width = `${pct}%`;
-
-      let singleAttachment = currentAttachment;
+      let recAttachment = null;
 
       if (currentAttachment && currentAttachment.isHtmlTemplate) {
         progressText.textContent = `Converting attachment for ${rec.email} (${globalIdx + 1}/${totalRecipients})...`;
@@ -1335,7 +1382,7 @@ form.addEventListener("submit", async (e) => {
             subject
           );
           const recipientFilename = personalize(currentAttachment.name, rec);
-          singleAttachment = {
+          recAttachment = {
             name: recipientFilename,
             mimeType: mimeType,
             base64: base64
@@ -1348,21 +1395,28 @@ form.addEventListener("submit", async (e) => {
         }
       }
 
-      if (isSendingAborted) {
-        log(`⏹️ Sending halted by user during chunk ${chunkIdx + 1}.`, "warning");
-        break;
-      }
+      chunkRecipients.push({
+        ...rec,
+        ...(recAttachment ? { attachment: recAttachment } : {})
+      });
+    }
 
-      progressText.textContent = `Chunk ${chunkIdx + 1}/${totalChunks} · Sending to ${rec.email} (${globalIdx + 1}/${totalRecipients})...`;
+    if (isSendingAborted) {
+      log(`⏹️ Sending halted by user during chunk ${chunkIdx + 1}.`, "warning");
+      break;
+    }
+
+    if (chunkRecipients.length > 0) {
+      progressText.textContent = `Sending Chunk ${chunkIdx + 1}/${totalChunks} (${chunkRecipients.length} emails)...`;
 
       try {
         const requestPayload = {
           delay_ms: delayMs,
-          recipients: [rec],
+          recipients: chunkRecipients,
           subject,
           message,
           fromName: fromNameInput ? fromNameInput.value.trim() : "",
-          attachment: singleAttachment,
+          attachment: (currentAttachment && !currentAttachment.isHtmlTemplate) ? currentAttachment : null,
           dryRun: !isBroadcast
         };
 
@@ -1378,47 +1432,33 @@ form.addEventListener("submit", async (e) => {
           data = JSON.parse(responseText);
         } catch {
           if (res.status === 413 || responseText.includes("Request Entity Too Large") || responseText.startsWith("Request En")) {
-            throw new Error("Payload size exceeds Vercel's 4.5 MB limit. Please use a smaller attachment file.");
+            throw new Error("Payload size exceeds limit. Please use a smaller attachment file.");
           }
           throw new Error(`Server returned non-JSON error (${res.status}): ${responseText.slice(0, 100)}`);
         }
 
         if (!res.ok) throw new Error(data.error || "Sending failed.");
 
-        if (data.dryRun) {
-          const attInfo = singleAttachment ? ` [Attachment: ${singleAttachment.name}]` : "";
-          log(`DRY-RUN (${globalIdx + 1}/${totalRecipients}): Validated recipient <${rec.email}>${attInfo}`, "dry");
-          globalSent++;
-        } else {
-          const resItem = data.results && data.results[0];
-          if (resItem && resItem.status === "sent") {
+        const results = data.results || [];
+        results.forEach((item, idx) => {
+          const globalIdx = chunkIdx * CHUNK_SIZE + idx;
+          const currentPct = Math.round(((globalIdx + 1) / totalRecipients) * 100);
+          progressBarFill.style.width = `${currentPct}%`;
+
+          if (data.dryRun) {
+            log(`DRY-RUN (${globalIdx + 1}/${totalRecipients}): Validated recipient <${item.email}>`, "dry");
             globalSent++;
-            const attInfo = singleAttachment ? ` [Attachment: ${singleAttachment.name}]` : "";
-            log(`SENT (${globalIdx + 1}/${totalRecipients}) -> ${rec.email}${attInfo}`, "sent");
+          } else if (item.status === "sent") {
+            globalSent++;
+            log(`SENT (${globalIdx + 1}/${totalRecipients}) -> ${item.email}`, "sent");
           } else {
             globalFail++;
-            log(`FAILED (${globalIdx + 1}/${totalRecipients}) -> ${rec.email}: ${resItem?.error || "Send rejected"}`, "error");
+            log(`FAILED (${globalIdx + 1}/${totalRecipients}) -> ${item.email}: ${item.error || "Send rejected"}`, "error");
           }
-        }
+        });
       } catch (err) {
-        globalFail++;
-        log(`FAILED (${globalIdx + 1}/${totalRecipients}) -> ${rec.email}: ${err.message}`, "error");
-      }
-
-      if (isSendingAborted) {
-        log(`⏹️ Sending halted by user during chunk ${chunkIdx + 1}.`, "warning");
-        break;
-      }
-
-      // Per-email delay within a chunk
-      if (i < chunk.length - 1 && isBroadcast && delayMs > 0) {
-        const checkInterval = 100;
-        let elapsed = 0;
-        while (elapsed < delayMs) {
-          if (isSendingAborted) break;
-          await new Promise((resolve) => setTimeout(resolve, Math.min(checkInterval, delayMs - elapsed)));
-          elapsed += checkInterval;
-        }
+        globalFail += chunkRecipients.length;
+        log(`FAILED Chunk ${chunkIdx + 1}/${totalChunks}: ${err.message}`, "error");
       }
     }
 
