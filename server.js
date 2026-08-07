@@ -37,7 +37,7 @@ const CONFIG_FILE = path.join(__dirname, ".env");
 // Fixed security code used to encrypt the session cookie when none is supplied,
 // so sign-ins survive restarts and credential edits.
 const FIXED_ENCRYPTION_SECRET = "webmailer-fixed-session-security-code-v1";
-const contentTypes = { ".css": "text/css; charset=utf-8", ".html": "text/html; charset=utf-8", ".js": "text/javascript; charset=utf-8" };
+const contentTypes = { ".css": "text/css; charset=utf-8", ".html": "text/html; charset=utf-8", ".js": "text/javascript; charset=utf-8", ".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".svg": "image/svg+xml", ".ico": "image/x-icon" };
 
 function sendJson(response, status, value) {
   response.writeHead(status, { "Content-Type": "application/json; charset=utf-8" });

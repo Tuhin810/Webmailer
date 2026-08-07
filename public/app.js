@@ -3,6 +3,27 @@ const form = document.querySelector("#mailer-form");
 const sendButton = document.querySelector("#send-button");
 const terminal = document.querySelector("#terminal");
 const clearTerminalBtn = document.querySelector("#clear-terminal-btn");
+
+const terminalConsole = document.querySelector(".terminal-console");
+
+// The scroll container is the console wrapper, not the <pre> itself. Follow the
+// tail automatically, but leave the view alone while the user is reading back.
+let terminalFollowTail = true;
+
+if (terminalConsole) {
+  terminalConsole.addEventListener("scroll", () => {
+    const distanceFromBottom =
+      terminalConsole.scrollHeight - terminalConsole.scrollTop - terminalConsole.clientHeight;
+    terminalFollowTail = distanceFromBottom < 40;
+  });
+}
+
+function scrollTerminalToBottom(force = false) {
+  if (!terminalConsole) return;
+  if (!force && !terminalFollowTail) return;
+  terminalConsole.scrollTop = terminalConsole.scrollHeight;
+}
+
 const progressContainer = document.querySelector("#progress-container");
 const progressBlocks = document.querySelector("#progress-blocks");
 
@@ -180,7 +201,7 @@ function log(msg, type = "info") {
       `<span class="log-bullet-lead">${escapeHtml(lead)}</span>` +
       (rest ? ` <span class="log-bullet-rest">${escapeHtml(rest)}</span>` : "");
     terminal.appendChild(line);
-    terminal.scrollTop = terminal.scrollHeight;
+    scrollTerminalToBottom();
     return;
   }
 
@@ -204,7 +225,7 @@ function log(msg, type = "info") {
     `<span class="log-icon log-${type}">${icon}</span>` +
     `<span class="log-text">${escapeHtml(clean)}</span>`;
   terminal.appendChild(line);
-  terminal.scrollTop = terminal.scrollHeight;
+  scrollTerminalToBottom();
 }
 
 function escapeHtml(str) {
@@ -1659,6 +1680,7 @@ broadcastCheckbox.addEventListener("change", (e) => {
 // Clear Terminal
 clearTerminalBtn.addEventListener("click", () => {
   terminal.innerHTML = "";
+  terminalFollowTail = true;
   log("Terminal log cleared.", "sys");
 });
 
