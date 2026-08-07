@@ -268,6 +268,16 @@ async function loadConfig() {
     fromNameInput.value = localStorage.getItem("mailer_from_name") || "";
   }
   try {
+    const cfg = await fetch("/api/config").then((res) => res.json());
+    if (!cfg.configured) {
+      log("Google OAuth is not configured yet. Opening setup…", "warning");
+      window.location.href = "/setup.html";
+      return;
+    }
+  } catch {
+    log("Could not check server configuration.", "error");
+  }
+  try {
     const auth = await fetch("/api/auth/status").then((res) => res.json());
     const gmail = auth.email;
     const statusDot = document.querySelector("#google-status-dot");
@@ -1415,13 +1425,22 @@ form.addEventListener("submit", async (e) => {
       break;
     }
 
-    if (chunkRecipients.length > 0) {
-      progressText.textContent = `Sending Chunk ${chunkIdx + 1}/${totalChunks} (${chunkRecipients.length} emails)...`;
+    for (let i = 0; i < chunkRecipients.length; i++) {
+      if (isSendingAborted) {
+        log(`⏹️ Sending halted by user during chunk ${chunkIdx + 1}.`, "warning");
+        break;
+      }
+
+      const rec = chunkRecipients[i];
+      const globalIdx = chunkIdx * CHUNK_SIZE + i;
+      const currentPct = Math.round(((globalIdx + 1) / totalRecipients) * 100);
+
+      progressText.textContent = `Chunk ${chunkIdx + 1}/${totalChunks} — sending ${globalIdx + 1}/${totalRecipients} (${rec.email})...`;
 
       try {
         const requestPayload = {
           delay_ms: delayMs,
-          recipients: chunkRecipients,
+          recipients: [rec],
           subject,
           message,
           fromName: fromNameInput ? fromNameInput.value.trim() : "",
@@ -1448,26 +1467,29 @@ form.addEventListener("submit", async (e) => {
 
         if (!res.ok) throw new Error(data.error || "Sending failed.");
 
-        const results = data.results || [];
-        results.forEach((item, idx) => {
-          const globalIdx = chunkIdx * CHUNK_SIZE + idx;
-          const currentPct = Math.round(((globalIdx + 1) / totalRecipients) * 100);
-          progressBarFill.style.width = `${currentPct}%`;
+        const item = (data.results || [])[0] || {};
 
-          if (data.dryRun) {
-            log(`DRY-RUN (${globalIdx + 1}/${totalRecipients}): Validated recipient <${item.email}>`, "dry");
-            globalSent++;
-          } else if (item.status === "sent") {
-            globalSent++;
-            log(`SENT (${globalIdx + 1}/${totalRecipients}) -> ${item.email}`, "sent");
-          } else {
-            globalFail++;
-            log(`FAILED (${globalIdx + 1}/${totalRecipients}) -> ${item.email}: ${item.error || "Send rejected"}`, "error");
-          }
-        });
+        if (data.dryRun) {
+          globalSent++;
+          log(`DRY-RUN (${globalIdx + 1}/${totalRecipients}): Validated recipient <${rec.email}>`, "dry");
+        } else if (item.status === "sent") {
+          globalSent++;
+          log(`SENT (${globalIdx + 1}/${totalRecipients}) -> ${item.email || rec.email}`, "sent");
+        } else {
+          globalFail++;
+          log(`FAILED (${globalIdx + 1}/${totalRecipients}) -> ${item.email || rec.email}: ${item.error || "Send rejected"}`, "error");
+        }
       } catch (err) {
-        globalFail += chunkRecipients.length;
-        log(`FAILED Chunk ${chunkIdx + 1}/${totalChunks}: ${err.message}`, "error");
+        globalFail++;
+        log(`FAILED (${globalIdx + 1}/${totalRecipients}) -> ${rec.email}: ${err.message}`, "error");
+      }
+
+      progressBarFill.style.width = `${currentPct}%`;
+      progressText.textContent = `${globalSent + globalFail} / ${totalRecipients} processed`;
+
+      // Small pause between individual sends so logs stream and rate limits are respected
+      if (i < chunkRecipients.length - 1 && !isSendingAborted) {
+        await new Promise((r) => setTimeout(r, delayMs));
       }
     }
 

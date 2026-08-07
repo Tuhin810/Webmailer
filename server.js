@@ -33,6 +33,10 @@ const MAX_BODY_SIZE = 25 * 1024 * 1024;
 const SESSION_COOKIE = "mailer_oauth";
 const STATE_COOKIE = "mailer_oauth_state";
 const GMAIL_SEND_SCOPE = "https://www.googleapis.com/auth/gmail.send";
+const CONFIG_FILE = path.join(__dirname, ".env");
+// Fixed security code used to encrypt the session cookie when none is supplied,
+// so sign-ins survive restarts and credential edits.
+const FIXED_ENCRYPTION_SECRET = "webmailer-fixed-session-security-code-v1";
 const contentTypes = { ".css": "text/css; charset=utf-8", ".html": "text/html; charset=utf-8", ".js": "text/javascript; charset=utf-8" };
 
 function sendJson(response, status, value) {
@@ -67,13 +71,37 @@ function parseCookies(request) { return Object.fromEntries((request.headers.cook
 function cookie(name, value, maxAge) { return `${name}=${encodeURIComponent(value)}; Path=/; HttpOnly; SameSite=Lax; ${process.env.NODE_ENV === "production" ? "Secure; " : ""}${maxAge === undefined ? "" : `Max-Age=${maxAge}; `}`; }
 function clearCookie(name) { return cookie(name, "", 0); }
 
+// Always derived from the URL the app is actually being served on.
+function redirectUriFor(request) {
+  const proto = (request.headers["x-forwarded-proto"] || "").split(",")[0].trim() || (request.socket.encrypted ? "https" : "http");
+  const host = request.headers["x-forwarded-host"] || request.headers.host;
+  return `${proto}://${host}/api/auth/google/callback`;
+}
+
 function oauthConfig(request) {
   const clientId = process.env.GOOGLE_CLIENT_ID;
   const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
-  const encryptionSecret = process.env.SESSION_ENCRYPTION_KEY;
-  const inferredRedirect = `${request.headers["x-forwarded-proto"] || "http"}://${request.headers.host}/api/auth/google/callback`;
-  if (!clientId || !clientSecret || !encryptionSecret) throw new Error("Google OAuth is not configured on this server.");
-  return { clientId, clientSecret, encryptionSecret, redirectUri: process.env.GOOGLE_REDIRECT_URI || inferredRedirect };
+  const encryptionSecret = process.env.SESSION_ENCRYPTION_KEY || FIXED_ENCRYPTION_SECRET;
+  if (!clientId || !clientSecret) throw new Error("Google OAuth is not configured. Open /setup.html to add your Client ID and Secret.");
+  return { clientId, clientSecret, encryptionSecret, redirectUri: redirectUriFor(request) };
+}
+
+// Persist credentials to .env so they survive restarts, and apply them immediately.
+async function saveConfig(values) {
+  const existing = {};
+  try {
+    const raw = await fs.readFile(CONFIG_FILE, "utf8");
+    for (const line of raw.split("\n")) {
+      const trimmed = line.trim();
+      if (!trimmed || trimmed.startsWith("#")) continue;
+      const eq = trimmed.indexOf("=");
+      if (eq !== -1) existing[trimmed.slice(0, eq).trim()] = trimmed.slice(eq + 1).trim();
+    }
+  } catch { /* no .env yet */ }
+
+  const merged = { ...existing, ...values };
+  await fs.writeFile(CONFIG_FILE, Object.entries(merged).map(([k, v]) => `${k}=${v}`).join("\n") + "\n", "utf8");
+  for (const [key, value] of Object.entries(values)) process.env[key] = value;
 }
 
 function encryptionKey(secret) { return crypto.createHash("sha256").update(secret).digest(); }
@@ -316,6 +344,26 @@ http.createServer(async (request, response) => {
     const pathname = url.pathname.length > 1 && url.pathname.endsWith("/") ? url.pathname.slice(0, -1) : url.pathname;
     if (pathname === "/api/auth/google/login" && request.method === "GET") return await handleGoogleLogin(request, response);
     if (pathname === "/api/auth/google/callback" && request.method === "GET") return await handleGoogleCallback(request, response, url);
+    if (pathname === "/api/config" && request.method === "GET") {
+      return sendJson(response, 200, {
+        configured: Boolean(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET),
+        clientId: process.env.GOOGLE_CLIENT_ID || "",
+        clientSecretSet: Boolean(process.env.GOOGLE_CLIENT_SECRET),
+        redirectUri: redirectUriFor(request),
+      });
+    }
+    if (pathname === "/api/config" && request.method === "POST") {
+      const data = await readBody(request);
+      const clientId = text(data.clientId, "Client ID");
+      const clientSecret = typeof data.clientSecret === "string" && data.clientSecret.trim()
+        ? data.clientSecret.trim()
+        : process.env.GOOGLE_CLIENT_SECRET;
+      if (!clientSecret) throw new Error("Client Secret is required.");
+      await saveConfig({ GOOGLE_CLIENT_ID: clientId, GOOGLE_CLIENT_SECRET: clientSecret, SESSION_ENCRYPTION_KEY: FIXED_ENCRYPTION_SECRET });
+      // Credentials changed, so any existing session cookie is no longer meaningful.
+      response.setHeader("Set-Cookie", clearCookie(SESSION_COOKIE));
+      return sendJson(response, 200, { ok: true, redirectUri: redirectUriFor(request) });
+    }
     if (pathname === "/api/auth/status" && request.method === "GET") { const session = await getSession(request); return sendJson(response, 200, { connected: Boolean(session), email: session?.email || null }); }
     if (pathname === "/api/auth/logout" && request.method === "POST") {
       response.setHeader("Set-Cookie", clearCookie(SESSION_COOKIE));

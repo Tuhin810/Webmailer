@@ -1,0 +1,494 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Setup · Gmail CSV Mailer Studio</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap"
+    rel="stylesheet">
+  <style>
+    :root {
+      --bg: #2b2c3b;
+      --panel: #33344a;
+      --field: #3d3e57;
+      --field-focus: #474963;
+      --line: #4a4c68;
+      --text: #f1f2f7;
+      --muted: #a3a5bd;
+      --accent: #3055eb;
+      --accent-hover: #8b73e0;
+      --ok: #4ade80;
+      --err: #f87171;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      display: flex;
+      background: #181818;
+      color: var(--text);
+      justify-content: center;
+      align-items: center;
+      padding: 30px;
+      font-family: 'Inter', system-ui, sans-serif;
+      -webkit-font-smoothing: antialiased;
+
+
+    }
+
+    .shell {
+      width: 100%;
+      margin: auto;
+      border-radius: 22px;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 42px;
+    }
+
+    /* ---- Left visual panel ---- */
+    .hero {
+      position: relative;
+      border-radius: 16px;
+      overflow: hidden;
+      height: 95vh;
+      padding: 30px;
+      display: flex;
+      flex-direction: column;
+      background:
+        radial-gradient(120% 80% at 50% 100%, #121212 0%, #222126 45%, transparent 70%),
+        linear-gradient(180deg, #8b73e0 0%, #575ec9c0 26%, #0b0b0b 60%, #111111 100%);
+    }
+
+    /* Layered dunes */
+    .hero::before,
+    .hero::after {
+      content: "";
+      position: absolute;
+      left: -20%;
+      right: -20%;
+      bottom: -18%;
+      height: 62%;
+      border-radius: 60% 40% 0 0 / 100% 90% 0 0;
+    }
+
+    .hero::before {
+      background: linear-gradient(180deg, #8b73e0 0%, #1c1a2a 100%);
+      transform: rotate(-6deg);
+    }
+
+    .hero::after {
+      background: linear-gradient(180deg, #8b73e0 0%, #4a1cf1 100%);
+      transform: translateY(12%) rotate(4deg);
+    }
+
+    .hero-top {
+      position: relative;
+      z-index: 2;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .hero-logo {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 22px;
+      font-weight: 600;
+      letter-spacing: .18em;
+      color: #fff;
+    }
+
+    .hero-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 9px 16px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, .16);
+      backdrop-filter: blur(6px);
+      color: #fff;
+      font-size: 13px;
+      font-weight: 500;
+      text-decoration: none;
+    }
+
+    .hero-link:hover {
+      background: rgba(255, 255, 255, .26);
+    }
+
+    .hero-caption {
+      position: relative;
+      z-index: 2;
+      margin-top: auto;
+      text-align: center;
+      font-size: 30px;
+      font-weight: 600;
+      line-height: 1.3;
+      color: #fff;
+    }
+
+    .hero-dots {
+      position: relative;
+      z-index: 2;
+      display: flex;
+      gap: 8px;
+      justify-content: center;
+      margin-top: 40px;
+    }
+
+    .hero-dots span {
+      width: 26px;
+      height: 4px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, .3);
+    }
+
+    .hero-dots span.on {
+      background: #fff;
+      width: 52px;
+    }
+
+    /* ---- Right form panel ---- */
+    .form {
+      padding: 40px 40px 30px 0;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      max-width: 520px;
+      margin-left: 5rem;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 44px;
+      line-height: 1.1;
+      font-weight: 700;
+      letter-spacing: -.02em;
+    }
+
+    .sub {
+      margin: 14px 0 34px;
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.6;
+    }
+
+    .sub a {
+      color: var(--text);
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      align-self: flex-start;
+      padding: 5px 12px;
+      border-radius: 999px;
+      font-size: 11.5px;
+      font-weight: 600;
+      margin-bottom: 18px;
+    }
+
+    .badge::before {
+      content: "";
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: currentColor;
+    }
+
+    .badge.on {
+      background: rgba(74, 222, 128, .14);
+      color: var(--ok);
+    }
+
+    .badge.off {
+      background: rgba(248, 113, 113, .14);
+      color: var(--err);
+    }
+
+    .field {
+      margin-bottom: 14px;
+    }
+
+    .field-label {
+      display: block;
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--muted);
+      margin-bottom: 7px;
+    }
+
+    .input-wrap {
+      position: relative;
+    }
+
+    input {
+      width: 100%;
+      padding: 17px 18px;
+      background: #3838387c;
+      border: 1px solid transparent;
+      border-radius: 11px;
+      color: var(--text);
+      font-family: inherit;
+      font-size: 14.5px;
+    }
+
+    input::placeholder {
+      color: #9698b4;
+    }
+
+    input:focus {
+      outline: none;
+      background: var(--field-focus);
+      border-color: var(--line);
+    }
+
+    input[readonly] {
+      color: var(--muted);
+      cursor: default;
+      padding-right: 92px;
+    }
+
+    .in-field-btn {
+      position: absolute;
+      top: 50%;
+      right: 10px;
+      transform: translateY(-50%);
+      padding: 8px 13px;
+      border: none;
+      border-radius: 8px;
+      background: rgba(25, 24, 24, 0.189);
+      color: var(--text);
+      font-family: inherit;
+      font-size: 12.5px;
+      font-weight: 500;
+      cursor: pointer;
+    }
+
+    .in-field-btn:hover {
+      background: rgba(225, 0, 0, 0.86);
+    }
+
+    .hint {
+      margin: 8px 2px 0;
+      font-size: 12px;
+      color: var(--muted);
+      line-height: 1.55;
+    }
+
+    .primary {
+      width: 100%;
+      margin-top: 20px;
+      padding: 18px;
+      border: none;
+      border-radius: 11px;
+      background: var(--accent);
+      color: #fff;
+      font-family: inherit;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    .primary:hover {
+      background: var(--accent-hover);
+    }
+
+    .primary:disabled {
+      opacity: .6;
+      cursor: not-allowed;
+    }
+
+    .status {
+      margin: 14px 0 0;
+      font-size: 13px;
+      min-height: 19px;
+      text-align: center;
+    }
+
+    .status.ok {
+      color: var(--ok);
+    }
+
+    .status.err {
+      color: var(--err);
+    }
+
+    .divider {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      margin: 26px 0 16px;
+      color: var(--muted);
+      font-size: 12.5px;
+    }
+
+    .divider::before,
+    .divider::after {
+      content: "";
+      flex: 1;
+      height: 1px;
+      background: var(--line);
+    }
+
+    ol {
+      margin: 0;
+      padding-left: 18px;
+      color: var(--muted);
+      font-size: 12.5px;
+      line-height: 1.9;
+    }
+
+    @media (max-width: 900px) {
+      .shell {
+        grid-template-columns: 1fr;
+        gap: 24px;
+      }
+
+      .hero {
+        min-height: 260px;
+      }
+
+      .hero-caption {
+        font-size: 22px;
+      }
+
+      .form {
+        padding: 8px 12px 20px;
+        max-width: none;
+      }
+
+      h1 {
+        font-size: 32px;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="shell">
+    <section class="hero">
+      <div class="hero-top">
+        <span class="hero-logo">MAILER</span>
+        <a class="hero-link" href="/">Back to mailer <span>→</span></a>
+      </div>
+      <p class="hero-caption">Connect Once,<br />Send Anywhere</p>
+      <div class="hero-dots"><span></span><span></span><span class="on"></span></div>
+    </section>
+
+    <section class="form">
+      <span id="config-badge" class="badge off">Checking…</span>
+      <h1>Google OAuth setup</h1>
+      <p class="sub">
+        Paste the credentials from your Google Cloud OAuth client. They save to the server instantly and can
+        be changed any time — no restart needed.
+      </p>
+
+      <div class="field">
+        <!-- <span class="field-label">Authorised redirect URI · auto-detected</span>
+        <div class="input-wrap">
+          <input id="redirect-uri" readonly value="…" />
+          <button type="button" class="in-field-btn" id="copy-btn">Copy</button>
+        </div> -->
+
+
+        <div class="field" style="margin-top: 15px;">
+          <input id="client-id" placeholder="Client ID" autocomplete="off" />
+        </div>
+
+        <div class="field">
+          <div class="input-wrap">
+            <input id="client-secret" type="password" placeholder="Client Secret" autocomplete="off" />
+            <button type="button" class="in-field-btn" id="reveal-btn">Show</button>
+          </div>
+        </div>
+
+        <button type="button" class="primary" id="save-btn">Save &amp; continue</button>
+        <p class="status" id="status"></p>
+
+        <div class="divider">Where to get these</div>
+        <ol>
+          <li>Google Cloud Console → APIs &amp; Services → Credentials</li>
+          <li>Create an OAuth 2.0 Client ID of type "Web application"</li>
+          <li>Add the redirect URI above under "Authorised redirect URIs"</li>
+          <li>Enable the Gmail API for the project</li>
+        </ol>
+    </section>
+  </div>
+
+  <script>
+    const badge = document.querySelector("#config-badge");
+    const redirectInput = document.querySelector("#redirect-uri");
+    const clientIdInput = document.querySelector("#client-id");
+    const clientSecretInput = document.querySelector("#client-secret");
+    const secretHint = document.querySelector("#secret-hint");
+    const statusEl = document.querySelector("#status");
+    const saveBtn = document.querySelector("#save-btn");
+    const revealBtn = document.querySelector("#reveal-btn");
+
+    function setStatus(message, kind) {
+      statusEl.textContent = message;
+      statusEl.className = `status ${kind || ""}`;
+    }
+
+    async function loadConfig() {
+      try {
+        const data = await fetch("/api/config").then((res) => res.json());
+        redirectInput.value = data.redirectUri;
+        clientIdInput.value = data.clientId || "";
+        badge.textContent = data.configured ? "Configured" : "Not configured";
+        badge.className = `badge ${data.configured ? "on" : "off"}`;
+        if (data.clientSecretSet) {
+          clientSecretInput.placeholder = "•••••••• (saved)";
+          secretHint.textContent = "A secret is already saved. Leave blank to keep it, or type a new one to replace it.";
+        }
+      } catch {
+        setStatus("Could not reach the server.", "err");
+      }
+    }
+
+    document.querySelector("#copy-btn").addEventListener("click", async () => {
+      await navigator.clipboard.writeText(redirectInput.value);
+      setStatus("Redirect URI copied.", "ok");
+    });
+
+    revealBtn.addEventListener("click", () => {
+      const hidden = clientSecretInput.type === "password";
+      clientSecretInput.type = hidden ? "text" : "password";
+      revealBtn.textContent = hidden ? "Hide" : "Show";
+    });
+
+    saveBtn.addEventListener("click", async () => {
+      const clientId = clientIdInput.value.trim();
+      if (!clientId) return setStatus("Client ID is required.", "err");
+
+      saveBtn.disabled = true;
+      setStatus("Saving…");
+      try {
+        const res = await fetch("/api/config", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ clientId, clientSecret: clientSecretInput.value.trim() }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "Save failed.");
+        setStatus("Saved. Redirecting to the mailer…", "ok");
+        setTimeout(() => { window.location.href = "/"; }, 900);
+      } catch (err) {
+        setStatus(err.message, "err");
+        saveBtn.disabled = false;
+      }
+    });
+
+    loadConfig();
+  </script>
+</body>
+
+</html>
