@@ -189,12 +189,35 @@ function setTestModeState(isTest, isInitial = false) {
   }
 }
 
-// Helper function to sanitize Subject string into safe filename
+// Helper function to sanitize Subject string into safe filename.
+// Long attachment names read as document-lure spam, so the subject is trimmed
+// to a few leading words. Any {variable} tokens are preserved so the filename
+// still personalizes per recipient at send time.
+const FILENAME_MAX_WORDS = 4;
+const FILENAME_MAX_CHARS = 40;
+
 function getSanitizedSubjectFilename(ext = "pdf") {
   const rawSubject = (subjectInput ? subjectInput.value : "").trim();
   if (!rawSubject) return `Attachment.${ext}`;
-  const cleanName = rawSubject.replace(/[\\/:*?"<>|]+/g, "_").replace(/\s+/g, "_");
-  return `${cleanName}.${ext}`;
+
+  // Pull out leading {tokens} so truncation never splits one apart.
+  const tokens = [];
+  const remainder = rawSubject.replace(/^(?:\s*\{[^}]+\})+/, (match) => {
+    for (const token of match.match(/\{[^}]+\}/g) || []) tokens.push(token);
+    return "";
+  });
+
+  const words = remainder
+    .replace(/[\\/:*?"<>|]+/g, " ")
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, FILENAME_MAX_WORDS);
+
+  let stem = words.join("_").slice(0, FILENAME_MAX_CHARS).replace(/_+$/, "");
+  if (tokens.length) stem = stem ? `${tokens.join("")}_${stem}` : tokens.join("");
+  if (!stem) stem = "Attachment";
+
+  return `${stem}.${ext}`;
 }
 
 // Dynamically update attachment filename when Subject changes
