@@ -4,7 +4,17 @@ const sendButton = document.querySelector("#send-button");
 const terminal = document.querySelector("#terminal");
 const clearTerminalBtn = document.querySelector("#clear-terminal-btn");
 const progressContainer = document.querySelector("#progress-container");
-const progressBarFill = document.querySelector("#progress-bar-fill");
+const progressBlocks = document.querySelector("#progress-blocks");
+
+// CLI-style block meter: ▮ for done, ▯ for pending.
+const PROGRESS_BLOCK_COUNT = 25;
+function setProgress(pct) {
+  if (!progressBlocks) return;
+  const filled = Math.max(0, Math.min(PROGRESS_BLOCK_COUNT, Math.round((pct / 100) * PROGRESS_BLOCK_COUNT)));
+  progressBlocks.innerHTML =
+    `<span class="blk-on">${"\u25AE".repeat(filled)}</span>` +
+    `<span class="blk-off">${"\u25AF".repeat(PROGRESS_BLOCK_COUNT - filled)}</span>`;
+}
 const progressText = document.querySelector("#progress-text");
 const statRecipients = document.querySelector("#stat-recipients");
 const statMode = document.querySelector("#stat-mode");
@@ -154,28 +164,45 @@ function updateAttachmentFilenameFromSubject() {
 
 // Log function with timestamp and formatting (CLI Style)
 function log(msg, type = "info") {
-  const time = new Date().toLocaleTimeString();
   const line = document.createElement("div");
   line.className = `log-line log-type-${type}`;
 
-  let prefix = "";
+  // System lines read as status bullets: ● Bold-lead rest-muted
   if (type === "sys") {
-    prefix = `<span class="log-time">[${time}]</span> <span class="log-sys">[SYS]</span> `;
-  } else if (type === "csv") {
-    prefix = `<span class="log-time">[${time}]</span> <span class="log-csv">[CSV]</span> `;
-  } else if (type === "sent") {
-    prefix = `<span class="log-time">[${time}]</span> <span class="log-sent">✓ [SENT]</span> `;
-  } else if (type === "dry") {
-    prefix = `<span class="log-time">[${time}]</span> <span class="log-dry">✓ [DRY-RUN]</span> `;
-  } else if (type === "error") {
-    prefix = `<span class="log-time">[${time}]</span> <span class="log-error">✖ [ERROR]</span> `;
-  } else if (type === "warning") {
-    prefix = `<span class="log-time">[${time}]</span> <span class="log-warning">⚡ [WARN]</span> `;
-  } else {
-    prefix = `<span class="log-time">[${time}]</span> <span class="log-info">✓ [INFO]</span> `;
+    const clean = String(msg).replace(/^[─\s]+|[─\s]+$/g, "");
+    const done = /^(✅|✓|⏹)/.test(clean) || /\b(complete|completed|finished|done)\b/i.test(clean);
+    const words = clean.replace(/^[^\w]+\s*/, "").split(" ");
+    const lead = words.shift() || "";
+    const rest = words.join(" ");
+    line.className = `log-line log-type-sys log-bullet-line`;
+    line.innerHTML =
+      `<span class="log-bullet ${done ? "is-done" : ""}">\u25A0</span>` +
+      `<span class="log-bullet-lead">${escapeHtml(lead)}</span>` +
+      (rest ? ` <span class="log-bullet-rest">${escapeHtml(rest)}</span>` : "");
+    terminal.appendChild(line);
+    terminal.scrollTop = terminal.scrollHeight;
+    return;
   }
 
-  line.innerHTML = `${prefix}<span class="log-text">${escapeHtml(msg)}</span>`;
+  // Icon-only lines: no timestamp, no [TAG] — just the glyph and the message.
+  const ICONS = {
+    csv: "⛁",
+    sent: "✓",
+    dry: "✓",
+    error: "✖",
+    warning: "⚡",
+    info: "✓",
+  };
+
+  const icon = ICONS[type] || ICONS.info;
+  // Messages carry their own leading glyph/tag in places — drop it so it is not doubled.
+  const clean = String(msg)
+    .replace(/^[✓✔✖⚡⏹️⏳✅⏱️\s]+/u, "")
+    .replace(/^(SENT|FAILED|DRY-RUN|WARN(?:ING)?|ERROR)\s+/i, "");
+
+  line.innerHTML =
+    `<span class="log-icon log-${type}">${icon}</span>` +
+    `<span class="log-text">${escapeHtml(clean)}</span>`;
   terminal.appendChild(line);
   terminal.scrollTop = terminal.scrollHeight;
 }
@@ -287,6 +314,8 @@ async function loadConfig() {
       profileDisplayName.textContent = `${displayName} (me)`;
       avatarInitials.textContent = parts.slice(0, 2).toUpperCase();
       if (googleAccountStatus) googleAccountStatus.innerHTML = `Connected as <strong>${gmail}</strong>`;
+      const senderStat = document.querySelector("#stat-sender");
+      if (senderStat) senderStat.textContent = gmail;
       if (statusDot) statusDot.className = "status-dot-pulse dot-connected";
       googleConnectBtn.classList.add("hidden");
       googleDisconnectBtn.classList.remove("hidden");
@@ -301,6 +330,27 @@ async function loadConfig() {
   } catch {
     if (googleAccountStatus) googleAccountStatus.textContent = "Could not check Google connection.";
   }
+}
+
+// Terminal collapse / expand
+const terminalCollapseBtn = document.querySelector("#terminal-collapse-btn");
+if (terminalCollapseBtn) {
+  const terminalPane = document.querySelector(".terminal-pane");
+  const appContainer = document.querySelector(".app-container");
+
+  function setTerminalCollapsed(collapsed) {
+    terminalPane.classList.toggle("collapsed", collapsed);
+    appContainer.classList.toggle("terminal-collapsed", collapsed);
+    terminalCollapseBtn.setAttribute("aria-expanded", String(!collapsed));
+    terminalCollapseBtn.title = collapsed ? "Show terminal" : "Collapse terminal";
+    localStorage.setItem("mailer_terminal_collapsed", collapsed ? "1" : "0");
+  }
+
+  terminalCollapseBtn.addEventListener("click", () => {
+    setTerminalCollapsed(!terminalPane.classList.contains("collapsed"));
+  });
+
+  setTerminalCollapsed(localStorage.getItem("mailer_terminal_collapsed") === "1");
 }
 
 if (profileBadgeBtn) {
@@ -781,7 +831,14 @@ function buildChunks() {
   currentChunkIndex = 0;
 }
 
+// Keep the terminal stats strip in sync with the recipient list.
+function updateRecipientStat() {
+  const el = document.querySelector("#stat-recipients");
+  if (el) el.textContent = String(loadedRecipients.length);
+}
+
 function renderRecipientsUI(filename = "recipients.csv") {
+  updateRecipientStat();
   recipientsList.innerHTML = "";
   const toActionsContainer = document.querySelector(".to-actions");
 
@@ -1365,7 +1422,8 @@ form.addEventListener("submit", async (e) => {
   }
 
   progressContainer.classList.remove("hidden");
-  progressBarFill.style.width = "0%";
+  progressContainer.classList.remove("done");
+  setProgress(0);
   progressText.textContent = `0 / ${totalRecipients} processed`;
 
   log(`Starting ${isBroadcast ? "BROADCAST" : "SENDING"} for ${totalRecipients} recipient(s) in ${totalChunks} chunk(s) of up to ${CHUNK_SIZE}...`, "sys");
@@ -1484,7 +1542,7 @@ form.addEventListener("submit", async (e) => {
         log(`FAILED (${globalIdx + 1}/${totalRecipients}) -> ${rec.email}: ${err.message}`, "error");
       }
 
-      progressBarFill.style.width = `${currentPct}%`;
+      setProgress(currentPct);
       progressText.textContent = `${globalSent + globalFail} / ${totalRecipients} processed`;
 
       // Small pause between individual sends so logs stream and rate limits are respected
@@ -1523,6 +1581,7 @@ form.addEventListener("submit", async (e) => {
     log(`⏹️ Sending process stopped: ${globalSent} ${isBroadcast ? "sent" : "validated"}, ${globalFail} failed.`, "sys");
     progressText.textContent = `Stopped (${globalSent} / ${totalRecipients})`;
   } else {
+    progressContainer.classList.add("done");
     log(`✅ All chunks finished: ${globalSent} ${isBroadcast ? "sent" : "validated"}, ${globalFail} failed.`, "sys");
     progressText.textContent = `Completed (${globalSent} / ${totalRecipients})`;
   }

@@ -308,14 +308,16 @@
     <!-- RIGHT PANE: Live Terminal Window -->
     <section class="terminal-pane" aria-label="Terminal Activity Logs">
       <div class="terminal-header">
-        <div class="mac-dots">
-          <span class="dot dot-red"></span>
-          <span class="dot dot-yellow"></span>
-          <span class="dot dot-green"></span>
-        </div>
-        <div class="terminal-title">
-          <span class="terminal-icon">⚡</span>
-          <span>TERMINAL</span>
+
+        <div class="terminal-tabs">
+          <button type="button" id="terminal-collapse-btn" class="terminal-collapse-btn" title="Collapse terminal"
+            aria-expanded="true">
+            <svg viewBox="0 0 38 38" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+              stroke-linejoin="round" aria-hidden="true">
+              <path d="M9 6l6 6-6 6" />
+            </svg>
+          </button>
+          <span class="terminal-tab active">TERMINAL LOGS</span>
         </div>
         <div class="terminal-actions">
 
@@ -334,15 +336,29 @@
       </div>
 
       <div class="progress-container hidden" id="progress-container">
-        <div class="progress-bar-fill" id="progress-bar-fill"></div>
+        <div class="progress-blocks" id="progress-blocks" aria-hidden="true"></div>
         <span class="progress-text" id="progress-text">0 / 0 sent</span>
-        <button type="button" id="stop-mini-button" class="btn-stop-mini hidden" title="Cancel sending">⏹ Stop</button>
+      </div>
+
+      <div class="terminal-stats">
+        <div class="terminal-stat">
+          <span class="terminal-stat-label">SENDER ACCOUNT</span>
+          <span class="terminal-stat-value" id="stat-sender">not connected</span>
+        </div>
+        <div class="terminal-stat">
+          <span class="terminal-stat-label">RECIPIENTS LOADED</span>
+          <span class="terminal-stat-value" id="stat-recipients">0</span>
+        </div>
       </div>
 
       <div class="terminal-console">
-        <pre id="terminal" role="log" aria-live="polite">Initializing Mailer Terminal...
-[SYS] Web Mailer v1.0.0 started.
-[SYS] Connected to localhost server. Choose CSV to load recipients.</pre>
+        <pre id="terminal" role="log" aria-live="polite"><div class="log-line log-bullet-line"><span
+            class="log-bullet is-done">●</span><span class="log-bullet-lead">Ready</span> <span
+            class="log-bullet-rest">Web Mailer v1.0.0 started</span></div><div class="log-checklist"><div
+            class="log-check done"><span class="log-check-box">⊠</span><span>Server connected</span></div><div
+            class="log-check active"><span class="log-check-box">⊙</span><span>Load recipients from CSV</span></div><div
+            class="log-check"><span class="log-check-box">□</span><span>Compose subject and message</span></div><div
+            class="log-check"><span class="log-check-box">□</span><span>Send</span></div></div></pre>
       </div>
 
 

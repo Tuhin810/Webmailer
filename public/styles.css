@@ -1384,67 +1384,157 @@ body {
    RIGHT PANE: LIVE TERMINAL WINDOW (Premium Minimalist CLI Theme)
    ========================================================================== */
 .terminal-pane {
-  background: #191919;
-  color: #e4e4e7;
+  background: #0b0d0c;
+  color: #c8d3ce;
   display: flex;
   flex-direction: column;
   height: 100vh;
-  border-left: 1px solid #18181b;
+  border-left: 1px solid #141917;
   font-family: 'JetBrains Mono', 'Fira Code', 'SF Mono', monospace;
 }
 
 .terminal-header {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  gap: 1.6rem;
   padding: 0.85rem 1.25rem;
-  background: #000000;
-  border-bottom: 1px solid #18181b;
+  background: #12100f;
+  border-bottom: 1px solid #1c211f;
   user-select: none;
 }
 
-.mac-dots {
+/* "OXIDE INSTANCE / TERMINAL" style stacked brand label */
+.terminal-brand {
   display: flex;
-  gap: 0.45rem;
+  flex-direction: column;
+  line-height: 1.35;
+  font-size: 0.7rem;
+  letter-spacing: 0.16em;
+  color: #6f7d77;
 }
 
-.dot {
-  width: 11px;
-  height: 11px;
-  border-radius: 50%;
-}
-
-.dot-red {
-  background: #ff5f56;
-}
-
-.dot-yellow {
-  background: #ffbd2e;
-}
-
-.dot-green {
-  background: #27c93f;
-}
-
-.terminal-title {
-  display: flex;
-  align-items: center;
-  gap: 0.45rem;
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 0.78rem;
+.terminal-brand strong {
   font-weight: 600;
-  letter-spacing: 0.04em;
-  color: #a1a1aa;
+  color: #e6efea;
 }
 
-.terminal-title .terminal-icon {
-  color: #eab308;
-}
-
-.terminal-actions {
+.terminal-tabs {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
+  gap: 1.4rem;
+  margin-right: auto;
+}
+
+.terminal-collapse-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: none;
+  border-radius: 5px;
+  background: rgba(128, 128, 128, 0.288);
+  color: #6f7d77;
+  cursor: pointer;
+  transition: color 0.15s ease, background 0.15s ease;
+}
+
+.terminal-collapse-btn svg {
+  width: 25px;
+  height: 25px;
+  transition: transform 0.2s ease;
+}
+
+.terminal-collapse-btn:hover {
+  color: #e6efea;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+/* Chevron points right when open (collapse), left when collapsed (expand) */
+.terminal-pane.collapsed .terminal-collapse-btn svg {
+  transform: rotate(180deg);
+}
+
+/* Collapsed: only a slim header strip stays visible */
+.terminal-pane.collapsed .terminal-stats,
+.terminal-pane.collapsed .terminal-console,
+.terminal-pane.collapsed .progress-container,
+.terminal-pane.collapsed .terminal-tab,
+.terminal-pane.collapsed .terminal-brand,
+.terminal-pane.collapsed #clear-terminal-btn {
+  display: none;
+}
+
+.terminal-pane.collapsed .terminal-header {
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 0.9rem;
+  height: 100%;
+  padding: 0.9rem 0.4rem;
+  border-bottom: none;
+}
+
+.terminal-pane.collapsed .terminal-tabs {
+  flex-direction: column;
+  margin-right: 0;
+}
+
+.app-container.terminal-collapsed {
+  grid-template-columns: 1fr 56px;
+}
+
+.terminal-tab {
+  position: relative;
+  padding: 0.35rem 0.1rem;
+  font-size: 0.74rem;
+  letter-spacing: 0.14em;
+  color: #6f7d77;
+  cursor: default;
+}
+
+.terminal-tab.active {
+  color: #48d597;
+}
+
+.terminal-tab.active::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -0.9rem;
+  height: 2px;
+  background: #48d597;
+}
+
+/* Instance-stats strip under the header */
+.terminal-stats {
+  display: flex;
+  gap: 2.6rem;
+  padding: 1.1rem 1.25rem 0.9rem;
+  background: #0b0d0c;
+}
+
+.terminal-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  min-width: 0;
+}
+
+.terminal-stat-label {
+  font-size: 0.68rem;
+  letter-spacing: 0.16em;
+  color: #6f7d77;
+}
+
+.terminal-stat-value {
+  font-size: 0.86rem;
+  color: #e6efea;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .status-indicator-badge {
@@ -1490,7 +1580,7 @@ body {
   color: #a1a1aa;
   font-family: 'JetBrains Mono', monospace;
   font-size: 0.72rem;
-  padding: 0.25rem 0.65rem;
+  padding: 0.6rem 0.65rem;
   border-radius: 6px;
   cursor: pointer;
   transition: all 0.15s ease;
@@ -1506,72 +1596,62 @@ body {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 0.25rem;
-  width: 26px;
-  height: 26px;
+  width: 30px;
+  height: 30px;
   text-decoration: none;
 }
 
 .terminal-icon-btn svg {
-  width: 14px;
-  height: 14px;
+  width: 34px;
+  height: 34px;
 }
 
-/* Progress Bar Container (Minimal CLI Progress) */
+/* Progress — CLI block meter (▮▮▮▮░░░░) */
 .progress-container {
-  background: #09090b;
-  border-bottom: 1px solid #18181b;
-  height: 32px;
-  position: relative;
-  overflow: hidden;
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0 1rem;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin: 0.2rem 1.25rem 1rem;
+  padding: 0;
+  background: none;
+  border: none;
 }
 
 .progress-container.hidden {
   display: none;
 }
 
-.progress-bar-fill {
-  position: absolute;
-  top: 0;
-  left: 0;
-  bottom: 0;
-  background: linear-gradient(90deg, #10b981, #22c55e);
-  width: 0%;
-  transition: width 0.3s ease;
-  opacity: 0.85;
+.progress-blocks {
+  font-family: 'JetBrains Mono', 'Fira Code', 'SF Mono', monospace;
+  font-size: 1.8rem;
+  line-height: 1;
+  letter-spacing: 0em;
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.progress-blocks .blk-on {
+  color: #48d597;
+}
+
+.progress-blocks .blk-off {
+  color: #2a3230;
+}
+
+.progress-container.done .progress-blocks .blk-on {
+  color: #4ade80;
+}
+
+.progress-container.done .progress-text {
+  color: #4ade80;
 }
 
 .progress-text {
-  position: relative;
-  z-index: 2;
   font-family: 'JetBrains Mono', monospace;
-  font-size: 0.75rem;
-  font-weight: 600;
-  color: #ffffff;
-}
-
-.btn-stop-mini {
-  position: relative;
-  z-index: 2;
-  background: #ef4444;
-  color: #ffffff;
-  border: none;
-  padding: 0.2rem 0.65rem;
-  border-radius: 6px;
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 0.75rem;
-  font-weight: 600;
-  cursor: pointer;
-  margin-left: 0.6rem;
-  transition: all 0.15s ease;
-}
-
-.btn-stop-mini:hover {
-  background: #dc2626;
+  font-size: 0.78rem;
+  font-weight: 500;
+  color: #f3f4f6;
+  letter-spacing: 0.02em;
 }
 
 /* Terminal Console Viewport */
@@ -1582,24 +1662,93 @@ body {
   font-family: 'JetBrains Mono', 'Fira Code', 'SF Mono', monospace;
   font-size: 0.84rem;
   line-height: 1.7;
-  background: #181818;
+  background: #0b0d0c;
 }
 
 #terminal {
   white-space: pre-wrap;
   word-break: break-word;
-  color: #e4e4e7;
+  color: #c8d3ce;
   font-family: inherit;
 }
 
 /* Syntax Highlighted CLI Log Lines */
 .log-line {
   display: block;
+  white-space: normal;
   margin-bottom: 0.35rem;
   line-height: 1.6;
   font-family: 'JetBrains Mono', 'Fira Code', 'SF Mono', monospace;
   font-size: 0.83rem;
   word-break: break-word;
+}
+
+/* System lines rendered as status bullets (● Bold lead + muted rest) */
+.log-bullet-line {
+  display: block;
+  white-space: normal;
+  margin: 0.7rem 0 0.35rem;
+  line-height: 1.6;
+}
+
+.log-bullet {
+  display: inline-block;
+  margin-right: 0.55rem;
+  font-size: 0.7rem;
+  color: #6f7d77;
+}
+
+.log-bullet.is-done {
+  color: #48d597;
+}
+
+.log-bullet-lead {
+  font-weight: 600;
+  color: #e6efea;
+}
+
+.log-bullet-rest {
+  color: #8a968f;
+}
+
+/* Checklist rows nested under a bullet line */
+.log-checklist {
+  margin: 0.15rem 0 0.9rem 1.15rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.log-check {
+  display: flex;
+  align-items: baseline;
+  gap: 0.6rem;
+  white-space: normal;
+  color: #5d6a64;
+  line-height: 1.7;
+}
+
+.log-check-box {
+  flex: none;
+  width: 1ch;
+  color: inherit;
+}
+
+.log-check.done {
+  color: #4a564f;
+}
+
+.log-check.active {
+  color: #e6efea;
+  font-weight: 600;
+}
+
+/* Glyph that replaces the old [TAG] prefix */
+.log-icon {
+  display: inline-block;
+  width: 1.2ch;
+  margin-right: 0.65rem;
+  font-weight: 600;
 }
 
 .log-time {
@@ -2975,28 +3124,8 @@ body {
   cursor: not-allowed;
 }
 
-.btn-stop-send.hidden,
-.btn-stop-mini.hidden {
+.btn-stop-send.hidden {
   display: none !important;
-}
-
-.btn-stop-mini {
-  background: #fee2e2;
-  color: #dc2626;
-  border: 1px solid #fca5a5;
-  padding: 0.2rem 0.6rem;
-  border-radius: 6px;
-  font-size: 0.78rem;
-  font-weight: 700;
-  cursor: pointer;
-  margin-left: 0.6rem;
-  transition: all 0.15s ease;
-  align-self: center;
-}
-
-.btn-stop-mini:hover {
-  background: #fca5a5;
-  color: #991b1b;
 }
 
 /* ==========================================================================
