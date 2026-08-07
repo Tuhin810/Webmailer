@@ -1,0 +1,32 @@
+[Unit]
+Description=Webmailer (Gmail CSV sender)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=ubuntu
+WorkingDirectory=/home/ubuntu/webmailer
+# The app parses .env itself at startup, and the setup page creates it on first
+# run, so systemd must not require it to exist.
+ExecStart=/usr/bin/node server.js
+Restart=always
+RestartSec=5
+
+# Long sending runs must not be killed mid-flight.
+TimeoutStopSec=30
+KillSignal=SIGTERM
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=webmailer
+
+# Hardening
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=read-only
+ReadWritePaths=/home/ubuntu/webmailer
+
+[Install]
+WantedBy=multi-user.target
