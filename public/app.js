@@ -50,6 +50,35 @@ const cfgCancelBtn = document.querySelector("#cfg-cancel-btn");
 const googleAccountStatus = document.querySelector("#google-account-status");
 const googleConnectBtn = document.querySelector("#google-connect-btn");
 const googleDisconnectBtn = document.querySelector("#google-disconnect-btn");
+const copyEmailBtn = document.querySelector("#copy-email-btn");
+let connectedEmail = null;
+let copyResetTimer = null;
+
+if (copyEmailBtn) {
+  copyEmailBtn.addEventListener("click", async () => {
+    if (!connectedEmail) return;
+    try {
+      await navigator.clipboard.writeText(connectedEmail);
+    } catch {
+      const scratch = document.createElement("textarea");
+      scratch.value = connectedEmail;
+      scratch.setAttribute("readonly", "");
+      scratch.style.position = "fixed";
+      scratch.style.opacity = "0";
+      document.body.appendChild(scratch);
+      scratch.select();
+      document.execCommand("copy");
+      scratch.remove();
+    }
+    copyEmailBtn.classList.add("copied");
+    copyEmailBtn.title = "Copied!";
+    clearTimeout(copyResetTimer);
+    copyResetTimer = setTimeout(() => {
+      copyEmailBtn.classList.remove("copied");
+      copyEmailBtn.title = "Copy email address";
+    }, 1600);
+  });
+}
 
 // Form Inputs & Recipients
 const csvInput = document.querySelector("#csv-input");
@@ -338,12 +367,16 @@ async function loadConfig() {
       const senderStat = document.querySelector("#stat-sender");
       if (senderStat) senderStat.textContent = gmail;
       if (statusDot) statusDot.className = "status-dot-pulse dot-connected";
+      connectedEmail = gmail;
+      if (copyEmailBtn) copyEmailBtn.classList.remove("hidden");
       googleConnectBtn.classList.add("hidden");
       googleDisconnectBtn.classList.remove("hidden");
       log(`Connected Google sender profile (${gmail}).`, "sys");
     } else {
       if (googleAccountStatus) googleAccountStatus.textContent = "No Google account connected.";
       if (statusDot) statusDot.className = "status-dot-pulse dot-disconnected";
+      connectedEmail = null;
+      if (copyEmailBtn) copyEmailBtn.classList.add("hidden");
       googleConnectBtn.classList.remove("hidden");
       googleDisconnectBtn.classList.add("hidden");
       log(`No Google sender profile connected. Click "From" to sign in.`, "sys");
