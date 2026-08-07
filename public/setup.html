@@ -11,7 +11,9 @@
     href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap"
     rel="stylesheet">
   <style>
-    :root {
+    /* Dark theme (default) */
+    :root,
+    :root[data-theme="dark"] {
       --bg: #2b2c3b;
       --panel: #33344a;
       --field: #3d3e57;
@@ -23,6 +25,45 @@
       --accent-hover: #8b73e0;
       --ok: #4ade80;
       --err: #f87171;
+
+      --body-bg: #181818;
+      --input-bg: #3838387c;
+      --in-btn-bg: rgba(25, 24, 24, 0.189);
+      --in-btn-hover: rgba(139, 115, 224, 0.75);
+      --hero-bg:
+        radial-gradient(120% 80% at 50% 100%, #121212 0%, #222126 45%, transparent 70%),
+        linear-gradient(180deg, #8b73e0 0%, #575ec9c0 26%, #0b0b0b 60%, #111111 100%);
+      --dune-1: linear-gradient(180deg, #8b73e0 0%, #1c1a2a 100%);
+      --dune-2: linear-gradient(180deg, #8b73e0 0%, #4a1cf1 100%);
+      --toggle-bg: rgba(255, 255, 255, .08);
+      --toggle-border: #4a4c68;
+    }
+
+    /* Light theme */
+    :root[data-theme="light"] {
+      --bg: #ffffff;
+      --panel: #ffffff;
+      --field: #eef0f5;
+      --field-focus: #e6e9f2;
+      --line: #dfe2ea;
+      --text: #1b1c25;
+      --muted: #6b6f80;
+      --accent: #3055eb;
+      --accent-hover: #5f4bd0;
+      --ok: #16a34a;
+      --err: #dc2626;
+
+      --body-bg: #ffffff;
+      --input-bg: #f1f2f7;
+      --in-btn-bg: rgba(20, 20, 30, .06);
+      --in-btn-hover: rgba(48, 85, 235, .16);
+      --hero-bg:
+        radial-gradient(120% 80% at 50% 100%, #2b2547 0%, #4b3f86 45%, transparent 70%),
+        linear-gradient(180deg, #c9befc 0%, #9d8ce8 26%, #6a5ac4 60%, #372f63 100%);
+      --dune-1: linear-gradient(180deg, #b8a9f4 0%, #6a5ac4 100%);
+      --dune-2: linear-gradient(180deg, #8b73e0 0%, #4a3ba8 100%);
+      --toggle-bg: rgba(20, 20, 30, .05);
+      --toggle-border: #dfe2ea;
     }
 
     * {
@@ -32,8 +73,9 @@
     body {
       margin: 0;
       display: flex;
-      background: #181818;
+      background: var(--body-bg);
       color: var(--text);
+      transition: background-color .25s ease, color .25s ease;
       justify-content: center;
       align-items: center;
       padding: 30px;
@@ -61,9 +103,7 @@
       padding: 30px;
       display: flex;
       flex-direction: column;
-      background:
-        radial-gradient(120% 80% at 50% 100%, #121212 0%, #222126 45%, transparent 70%),
-        linear-gradient(180deg, #8b73e0 0%, #575ec9c0 26%, #0b0b0b 60%, #111111 100%);
+      background: var(--hero-bg);
     }
 
     /* Layered dunes */
@@ -79,12 +119,12 @@
     }
 
     .hero::before {
-      background: linear-gradient(180deg, #8b73e0 0%, #1c1a2a 100%);
+      background: var(--dune-1);
       transform: rotate(-6deg);
     }
 
     .hero::after {
-      background: linear-gradient(180deg, #8b73e0 0%, #4a1cf1 100%);
+      background: var(--dune-2);
       transform: translateY(12%) rotate(4deg);
     }
 
@@ -232,7 +272,7 @@
     input {
       width: 100%;
       padding: 17px 18px;
-      background: #3838387c;
+      background: var(--input-bg);
       border: 1px solid transparent;
       border-radius: 11px;
       color: var(--text);
@@ -241,7 +281,7 @@
     }
 
     input::placeholder {
-      color: #9698b4;
+      color: var(--muted);
     }
 
     input:focus {
@@ -264,7 +304,7 @@
       padding: 8px 13px;
       border: none;
       border-radius: 8px;
-      background: rgba(25, 24, 24, 0.189);
+      background: var(--in-btn-bg);
       color: var(--text);
       font-family: inherit;
       font-size: 12.5px;
@@ -273,7 +313,7 @@
     }
 
     .in-field-btn:hover {
-      background: rgba(225, 0, 0, 0.86);
+      background: var(--in-btn-hover);
     }
 
     .hint {
@@ -346,6 +386,37 @@
       line-height: 1.9;
     }
 
+    /* ---- Theme toggle ---- */
+    .theme-toggle {
+      position: fixed;
+      top: 26px;
+      right: 26px;
+      z-index: 10;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 9px 14px 9px 11px;
+      border: 1px solid var(--toggle-border);
+      border-radius: 999px;
+      background: var(--toggle-bg);
+      color: var(--text);
+      font-family: inherit;
+      font-size: 12.5px;
+      font-weight: 500;
+      cursor: pointer;
+      backdrop-filter: blur(6px);
+      transition: background-color .2s ease, border-color .2s ease;
+    }
+
+    .theme-toggle:hover {
+      border-color: var(--accent);
+    }
+
+    .theme-toggle svg {
+      width: 15px;
+      height: 15px;
+    }
+
     @media (max-width: 900px) {
       .shell {
         grid-template-columns: 1fr;
@@ -373,6 +444,15 @@
 </head>
 
 <body>
+  <button type="button" class="theme-toggle" id="theme-toggle" aria-label="Toggle colour theme">
+    <span id="theme-icon" aria-hidden="true">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+        <path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z" />
+      </svg>
+    </span>
+    <span id="theme-label">Dark</span>
+  </button>
+
   <div class="shell">
     <section class="hero">
       <div class="hero-top">
@@ -392,11 +472,11 @@
       </p>
 
       <div class="field">
-        <!-- <span class="field-label">Authorised redirect URI · auto-detected</span>
+        <span class="field-label">Authorised redirect URI · auto-detected</span>
         <div class="input-wrap">
           <input id="redirect-uri" readonly value="…" />
           <button type="button" class="in-field-btn" id="copy-btn">Copy</button>
-        </div> -->
+        </div>
 
 
         <div class="field" style="margin-top: 15px;">
@@ -424,6 +504,32 @@
   </div>
 
   <script>
+    // ---- Theme ----
+    const themeToggle = document.querySelector("#theme-toggle");
+    const themeIcon = document.querySelector("#theme-icon");
+    const themeLabel = document.querySelector("#theme-label");
+
+    const ICONS = {
+      dark: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>',
+      light: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M19.1 4.9l-1.4 1.4M6.3 17.7l-1.4 1.4"/></svg>',
+    };
+
+    function applyTheme(theme) {
+      document.documentElement.setAttribute("data-theme", theme);
+      themeIcon.innerHTML = ICONS[theme];
+      themeLabel.textContent = theme === "dark" ? "Dark" : "Light";
+      localStorage.setItem("mailer_theme", theme);
+    }
+
+    const savedTheme = localStorage.getItem("mailer_theme")
+      || (window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark");
+    applyTheme(savedTheme);
+
+    themeToggle.addEventListener("click", () => {
+      applyTheme(document.documentElement.getAttribute("data-theme") === "dark" ? "light" : "dark");
+    });
+
+    // ---- Config form ----
     const badge = document.querySelector("#config-badge");
     const redirectInput = document.querySelector("#redirect-uri");
     const clientIdInput = document.querySelector("#client-id");
@@ -441,23 +547,26 @@
     async function loadConfig() {
       try {
         const data = await fetch("/api/config").then((res) => res.json());
-        redirectInput.value = data.redirectUri;
+        if (redirectInput) redirectInput.value = data.redirectUri;
         clientIdInput.value = data.clientId || "";
         badge.textContent = data.configured ? "Configured" : "Not configured";
         badge.className = `badge ${data.configured ? "on" : "off"}`;
         if (data.clientSecretSet) {
           clientSecretInput.placeholder = "•••••••• (saved)";
-          secretHint.textContent = "A secret is already saved. Leave blank to keep it, or type a new one to replace it.";
+          if (secretHint) secretHint.textContent = "A secret is already saved. Leave blank to keep it, or type a new one to replace it.";
         }
       } catch {
         setStatus("Could not reach the server.", "err");
       }
     }
 
-    document.querySelector("#copy-btn").addEventListener("click", async () => {
-      await navigator.clipboard.writeText(redirectInput.value);
-      setStatus("Redirect URI copied.", "ok");
-    });
+    const copyBtn = document.querySelector("#copy-btn");
+    if (copyBtn) {
+      copyBtn.addEventListener("click", async () => {
+        await navigator.clipboard.writeText(redirectInput.value);
+        setStatus("Redirect URI copied.", "ok");
+      });
+    }
 
     revealBtn.addEventListener("click", () => {
       const hidden = clientSecretInput.type === "password";

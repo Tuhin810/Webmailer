@@ -1501,6 +1501,22 @@ body {
   color: #ffffff;
 }
 
+/* Square icon-only variant (settings gear next to Clear) */
+.terminal-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.25rem;
+  width: 26px;
+  height: 26px;
+  text-decoration: none;
+}
+
+.terminal-icon-btn svg {
+  width: 14px;
+  height: 14px;
+}
+
 /* Progress Bar Container (Minimal CLI Progress) */
 .progress-container {
   background: #09090b;

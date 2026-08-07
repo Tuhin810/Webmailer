@@ -354,7 +354,11 @@ http.createServer(async (request, response) => {
     }
     if (pathname === "/api/config" && request.method === "POST") {
       const data = await readBody(request);
-      const clientId = text(data.clientId, "Client ID");
+      // Browsers happily autofill/normalise the ID into a URL — strip scheme and trailing slashes.
+      const clientId = text(data.clientId, "Client ID").replace(/^https?:\/\//i, "").replace(/\/+$/, "").trim();
+      if (!/^[\w.-]+\.apps\.googleusercontent\.com$/.test(clientId)) {
+        throw new Error("That does not look like a Google Client ID. It should end in .apps.googleusercontent.com");
+      }
       const clientSecret = typeof data.clientSecret === "string" && data.clientSecret.trim()
         ? data.clientSecret.trim()
         : process.env.GOOGLE_CLIENT_SECRET;
