@@ -1054,7 +1054,7 @@ function renderAttachmentCard(filename, formatOrIsImage = "pdf") {
   attachmentsContainer.innerHTML = `
     <div class="attachment-card">
       ${iconMarkup}
-      <span class="attachment-name" id="current-attachment-filename-span">${escapeHtml(filename)}</span>
+      <span class="attachment-name" id="current-attachment-filename-span" title="${escapeHtml(filename)}">${escapeHtml(filename)}</span>
       ${badgeMarkup}
       <button type="button" class="attachment-delete" id="remove-attachment-btn" title="Remove attachment">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
