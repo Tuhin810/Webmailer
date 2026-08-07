@@ -5,6 +5,7 @@
 
   --bg-app: #f4f5f8;
   --bg-composer: #ffffff;
+  --bg-elevated: #f3f4f6;
   --text-primary: #111827;
   --text-secondary: #6b7280;
   --text-muted: #9ca3af;
@@ -18,8 +19,8 @@
   --accent-purple: #8b5cf6;
 
   /* Terminal Dark Theme Palette */
-  --bg-terminal: #0d1117;
-  --bg-terminal-header: #161b22;
+  --bg-terminal: #181818;
+  --bg-terminal-header: #181818;
   --text-terminal: #c9d1d9;
   --border-terminal: #30363d;
 }
@@ -1425,6 +1426,12 @@ body {
   margin-right: auto;
 }
 
+.terminal-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
 .terminal-collapse-btn {
   display: inline-flex;
   align-items: center;
@@ -1596,14 +1603,15 @@ body {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 30px;
-  height: 30px;
+  width: 36px;
+  height: 36px;
   text-decoration: none;
+  padding: 0;
 }
 
 .terminal-icon-btn svg {
-  width: 34px;
-  height: 34px;
+  width: 17px;
+  height: 17px;
 }
 
 /* Progress — CLI block meter (▮▮▮▮░░░░) */
@@ -3457,4 +3465,711 @@ body {
   to {
     opacity: 1;
   }
+}
+
+/* ==========================================================================
+   LEFT PANE: LIGHT / DARK THEME SUPPORT
+   Light is the default (no attribute). `:root[data-theme="dark"]` flips the
+   composer surfaces; the terminal pane is dark in both themes by design.
+   ========================================================================== */
+
+/* Theme switch — lives in the terminal header next to the settings gear */
+.composer-theme-toggle {
+  font-family: var(--font-sans);
+  font-weight: 600;
+}
+
+.composer-theme-toggle #composer-theme-icon {
+  display: inline-flex;
+}
+
+.composer-theme-toggle svg {
+  width: 17px;
+  height: 17px;
+  display: block;
+}
+
+/* Label is for screen readers / tooltips only — the header stays icon-only */
+.sr-only-label {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+:root[data-theme="dark"] {
+  --bg-app: #0f1210;
+  --bg-composer: #141715;
+  --bg-elevated: #1c201e;
+  --text-primary: #e6efea;
+  --text-secondary: #9aa8a2;
+  --text-muted: #6f7d77;
+  --border-light: #262b28;
+  --border-subtle: #1e2321;
+}
+
+:root[data-theme="dark"] .composer-pane {
+  background: var(--bg-composer);
+  border-right-color: var(--border-light);
+  color: var(--text-primary);
+}
+
+:root[data-theme="dark"] .composer-header {
+  border-bottom-color: var(--border-subtle);
+}
+
+:root[data-theme="dark"] .composer-title,
+:root[data-theme="dark"] .section-title,
+:root[data-theme="dark"] .popover-header h3 {
+  color: var(--text-primary);
+}
+
+:root[data-theme="dark"] .win-btn:hover {
+  color: var(--text-primary);
+}
+
+:root[data-theme="dark"] .field-label,
+:root[data-theme="dark"] .chevron-icon,
+:root[data-theme="dark"] .popover-subtitle,
+:root[data-theme="dark"] .input-hint {
+  color: var(--text-secondary);
+}
+
+/* From row / profile badge */
+:root[data-theme="dark"] .profile-badge {
+  background: var(--bg-elevated);
+  border-color: var(--border-light);
+  color: var(--text-primary);
+}
+
+:root[data-theme="dark"] .profile-badge:hover {
+  background: #232825;
+  border-color: #333a36;
+}
+
+/* Recipient chips, CSV badge, pills */
+:root[data-theme="dark"] .recipient-chip,
+:root[data-theme="dark"] .csv-summary-badge,
+:root[data-theme="dark"] .custom-csv-btn {
+  background: var(--bg-elevated);
+  border-color: var(--border-light);
+  color: var(--text-primary);
+}
+
+:root[data-theme="dark"] .custom-csv-btn:hover {
+  background: #232825;
+  border-color: #333a36;
+}
+
+:root[data-theme="dark"] .chip-text {
+  color: var(--text-primary);
+}
+
+:root[data-theme="dark"] .chip-avatar,
+:root[data-theme="dark"] .chip-avatar-num,
+:root[data-theme="dark"] .chip-avatar-icon {
+  background: #2a302d;
+  color: #d3ded8;
+}
+
+:root[data-theme="dark"] .btn-pill {
+  background: var(--bg-elevated);
+  border-color: var(--border-light);
+  color: var(--text-secondary);
+}
+
+:root[data-theme="dark"] .btn-pill:hover {
+  background: #232825;
+  color: var(--text-primary);
+}
+
+:root[data-theme="dark"] .divider {
+  border-bottom-color: var(--border-light);
+}
+
+/* Subject + editor */
+:root[data-theme="dark"] .subject-row {
+  background: #111413;
+  border-top-color: var(--border-light);
+  border-bottom-color: var(--border-light);
+}
+
+:root[data-theme="dark"] .subject-field {
+  caret-color: var(--text-primary);
+}
+
+:root[data-theme="dark"] .subject-field::placeholder,
+:root[data-theme="dark"] .message-textarea::placeholder,
+:root[data-theme="dark"] .message-visual[data-placeholder]:empty:before {
+  color: var(--text-muted);
+}
+
+:root[data-theme="dark"] .editor-header-bar {
+  border-bottom-color: var(--border-light);
+}
+
+:root[data-theme="dark"] .message-visual {
+  color: #d8e2dd;
+}
+
+:root[data-theme="dark"] .toolbar-divider {
+  background: #333a36;
+}
+
+/* Attachments */
+:root[data-theme="dark"] .attachment-card {
+  background: var(--bg-elevated);
+}
+
+:root[data-theme="dark"] .attachment-name {
+  color: var(--text-primary);
+}
+
+:root[data-theme="dark"] .attachment-delete {
+  color: var(--text-secondary);
+}
+
+:root[data-theme="dark"] .upload-box-icon {
+  background: #232825;
+  border-color: #333a36;
+}
+
+/* Top mode banner strip */
+:root[data-theme="dark"] .top-mode-banner-strip {
+  background: var(--bg-composer);
+  border-bottom-color: var(--border-subtle);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);
+}
+
+/* Modals / popovers on the left pane */
+:root[data-theme="dark"] .google-modal-card,
+:root[data-theme="dark"] .popover-card {
+  background: var(--bg-composer);
+  border-color: var(--border-light);
+  box-shadow: 0 25px 60px -12px rgba(0, 0, 0, 0.7), 0 4px 16px rgba(0, 0, 0, 0.4);
+}
+
+:root[data-theme="dark"] .modal-close-icon-btn {
+  background: var(--bg-elevated);
+  color: var(--text-secondary);
+}
+
+:root[data-theme="dark"] .modal-close-icon-btn:hover {
+  background: #2a302d;
+  color: var(--text-primary);
+}
+
+:root[data-theme="dark"] .google-modal-icon-badge,
+:root[data-theme="dark"] .google-status-banner {
+  background: var(--bg-elevated);
+  border-color: var(--border-light);
+  color: var(--text-primary);
+}
+
+:root[data-theme="dark"] .google-header-text h3 {
+  color: var(--text-primary);
+}
+
+:root[data-theme="dark"] .google-modal-subtitle,
+:root[data-theme="dark"] .unit-badge,
+:root[data-theme="dark"] .field-spacer-label {
+  color: var(--text-secondary);
+}
+
+:root[data-theme="dark"] .google-settings-grid {
+  background: #111413;
+  border-color: var(--border-subtle);
+}
+
+:root[data-theme="dark"] .input-field-group label,
+:root[data-theme="dark"] .toggle-option-label,
+:root[data-theme="dark"] .input-group span,
+:root[data-theme="dark"] .checkbox-label {
+  color: var(--text-primary);
+}
+
+:root[data-theme="dark"] .input-with-unit input,
+:root[data-theme="dark"] .input-group input[type="number"] {
+  background: var(--bg-elevated);
+  border-color: #333a36;
+  color: var(--text-primary);
+}
+
+:root[data-theme="dark"] .btn-google-signin {
+  background: var(--bg-elevated);
+  border-color: #333a36;
+  color: var(--text-primary);
+}
+
+:root[data-theme="dark"] .btn-google-signin:hover {
+  background: #232825;
+  border-color: #414a45;
+}
+
+:root[data-theme="dark"] .btn-disconnect-red {
+  background: rgba(239, 68, 68, 0.12);
+  border-color: rgba(239, 68, 68, 0.35);
+}
+
+:root[data-theme="dark"] .btn-disconnect-red:hover {
+  background: rgba(239, 68, 68, 0.2);
+  border-color: rgba(239, 68, 68, 0.5);
+}
+
+:root[data-theme="dark"] .popover-footer {
+  border-top-color: var(--border-subtle);
+}
+
+:root[data-theme="dark"] .btn-secondary {
+  background: var(--bg-elevated);
+  border-color: var(--border-light);
+  color: var(--text-primary);
+}
+
+:root[data-theme="dark"] .btn-secondary:hover {
+  background: #2a302d;
+}
+
+
+/* Chunk cooldown modal */
+:root[data-theme="dark"] .chunk-cooldown-card {
+  background: var(--bg-composer);
+}
+
+:root[data-theme="dark"] .cooldown-timer-text,
+:root[data-theme="dark"] .cooldown-title {
+  color: var(--text-primary);
+}
+
+:root[data-theme="dark"] .cooldown-subtitle {
+  color: var(--text-secondary);
+}
+
+:root[data-theme="dark"] .cooldown-chunk-info {
+  background: var(--bg-elevated);
+  color: var(--text-primary);
+}
+
+/* Sender name input (theme-aware; was previously inline-styled) */
+.from-name-input {
+  height: 40px;
+  padding: 10px 16px;
+  border: 1px solid var(--border-light);
+  border-radius: 22px;
+  font-size: 0.88rem;
+  font-family: inherit;
+  background: var(--bg-elevated);
+  color: var(--text-primary);
+  min-width: 220px;
+  outline: none;
+  transition: border-color 0.2s ease, background 0.2s ease;
+}
+
+.from-name-input::placeholder {
+  color: var(--text-muted);
+}
+
+.from-name-input:focus {
+  border-color: var(--accent-blue);
+}
+
+/* Editor tab / toolbar buttons keep readable text in both themes */
+.btn-open-side-drawer {
+  color: var(--text-primary) !important;
+  cursor: pointer;
+}
+
+.btn-open-side-drawer svg {
+  stroke: currentColor;
+}
+
+:root[data-theme="dark"] .btn-open-side-drawer:hover {
+  background: var(--bg-elevated) !important;
+  border-color: #414a45 !important;
+  color: #ffffff !important;
+}
+
+:root[data-theme="dark"] .editor-tab {
+  color: var(--text-secondary);
+}
+
+:root[data-theme="dark"] .editor-tab svg {
+  stroke: currentColor;
+}
+
+:root[data-theme="dark"] .editor-tab:hover,
+:root[data-theme="dark"] .editor-tab:hover svg {
+  color: var(--text-primary);
+  stroke: currentColor;
+}
+
+/* Chunk chips */
+:root[data-theme="dark"] .chunk-chip {
+  background: var(--bg-elevated);
+  border-color: var(--border-light);
+  color: var(--text-primary);
+}
+
+:root[data-theme="dark"] .chunk-chip.active-chunk {
+  background: rgba(59, 130, 246, 0.18);
+  border-color: rgba(59, 130, 246, 0.45);
+  color: #93c5fd;
+}
+
+:root[data-theme="dark"] .chunk-chip.sent-chunk {
+  background: rgba(16, 185, 129, 0.15);
+  border-color: rgba(16, 185, 129, 0.35);
+  color: #6ee7b7;
+}
+
+:root[data-theme="dark"] .editor-mode-toggle {
+  border-color: var(--border-light);
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.5);
+}
+
+/* Footer attachment trigger + attachment drawer body */
+.attachment-trigger-btn.has-attachment {
+  border-color: rgba(2, 153, 37, 0.6);
+}
+
+.attachment-trigger-btn.has-attachment .var-trigger-text {
+  color: #6ee7b7;
+}
+
+.drawer-attachments-section {
+  margin-top: 0.25rem;
+}
+
+.drawer-attachments-section .attachments-container {
+  margin-top: 0;
+}
+
+/* ==========================================================================
+   VARIABLE TOKENS ({name}, {email}) — rendered as pills wherever they appear
+   ========================================================================== */
+.var-token {
+  display: inline-block;
+  padding: 0.05em 0.5em;
+  margin: 0 1px;
+  border-radius: 6px;
+  background: rgba(139, 92, 246, 0.14);
+  border: 1px solid rgba(139, 92, 246, 0.35);
+  color: #7c3aed;
+  font-family: var(--font-mono);
+  font-size: 0.85em;
+  font-weight: 600;
+  line-height: 1.45;
+  white-space: nowrap;
+  vertical-align: baseline;
+  user-select: all;
+}
+
+:root[data-theme="dark"] .var-token {
+  background: rgba(167, 139, 250, 0.18);
+  border-color: rgba(167, 139, 250, 0.4);
+  color: #c4b5fd;
+}
+
+/* Subject line: the input text is transparent and a mirror layer behind it
+   paints the same string with the {variables} highlighted in place. The token
+   style here must not change text metrics, so it uses background + box-shadow
+   instead of padding/border and inherits the input's font. */
+.subject-field-wrap {
+  position: relative;
+  flex: 1;
+  display: flex;
+  min-width: 0;
+}
+
+.subject-highlight-backdrop {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  padding: 0.2rem 0;
+  font-size: 1rem;
+  font-weight: 400;
+  font-family: inherit;
+  line-height: normal;
+  white-space: pre;
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+}
+
+.subject-field {
+  color: transparent;
+  caret-color: var(--text-primary);
+  background: transparent;
+  position: relative;
+  z-index: 1;
+}
+
+.subject-field::selection {
+  background: rgba(139, 92, 246, 0.3);
+}
+
+.subject-var-token {
+  display: inline;
+  padding: 0;
+  margin: 0;
+  border: none;
+  font: inherit;
+  font-size: inherit;
+  font-weight: inherit;
+  font-family: inherit;
+  white-space: pre;
+  border-radius: 3px;
+  background: rgba(139, 92, 246, 0.16);
+  box-shadow: 0 0 0 2px rgba(139, 92, 246, 0.16);
+  color: #7c3aed;
+}
+
+:root[data-theme="dark"] .subject-var-token {
+  background: rgba(167, 139, 250, 0.22);
+  box-shadow: 0 0 0 2px rgba(167, 139, 250, 0.22);
+  color: #c4b5fd;
+}
+
+/* ==========================================================================
+   ADD VARIABLE DRAWER
+   Clean and flat, but every action stays visible and easy to hit.
+   ========================================================================== */
+#variable-drawer .drawer-content {
+  width: min(94vw, 540px);
+  max-height: 86vh;
+  display: flex;
+  flex-direction: column;
+  background: #17191e;
+  border-color: #262a31;
+  padding: 1.25rem 1.5rem 1.4rem;
+}
+
+#variable-drawer .drawer-header h3 {
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+
+#variable-drawer .drawer-subtitle {
+  font-size: 0.8rem;
+  color: #9aa3af;
+  margin-bottom: 0.85rem;
+}
+
+/* Scrollable list of variables */
+#variable-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  overflow-y: auto;
+  flex: 1;
+  min-height: 0;
+  padding-right: 0.25rem;
+  scrollbar-width: thin;
+  scrollbar-color: #2f343c transparent;
+}
+
+#variable-list::-webkit-scrollbar {
+  width: 6px;
+}
+
+#variable-list::-webkit-scrollbar-thumb {
+  background: #2f343c;
+  border-radius: 3px;
+}
+
+#variable-list .drawer-variable-card {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  width: 100%;
+  padding: 0.75rem 0.85rem;
+  background: #1d2027;
+  border: 1px solid #262a31;
+  border-radius: 10px;
+  box-shadow: none;
+  transform: none;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+#variable-list .drawer-variable-card:hover,
+#variable-list .drawer-variable-card:focus-visible {
+  background: #232730;
+  border-color: #8b5cf6;
+  transform: none;
+  box-shadow: none;
+  outline: none;
+}
+
+#variable-list .var-badge-icon {
+  width: auto;
+  background: none;
+  border: none;
+  color: #8b5cf6;
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  flex-shrink: 0;
+}
+
+#variable-list .var-card-name {
+  font-family: var(--font-mono);
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: #f1f5f9;
+}
+
+#variable-list .var-card-name::before {
+  content: "{";
+  color: #8b5cf6;
+}
+
+#variable-list .var-card-name::after {
+  content: "}";
+  color: #8b5cf6;
+}
+
+#variable-list .var-card-desc {
+  font-size: 0.76rem;
+  color: #9aa3af;
+}
+
+/* Always-visible insert action, so the row reads as clickable */
+#variable-list .var-insert-pill {
+  margin-left: auto;
+  padding: 0.35rem 0.7rem;
+  border-radius: 7px;
+  background: rgba(139, 92, 246, 0.18);
+  border: 1px solid rgba(139, 92, 246, 0.35);
+  font-family: var(--font-sans);
+  font-size: 0.74rem;
+  font-weight: 700;
+  color: #c4b5fd;
+  opacity: 1;
+  white-space: nowrap;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+#variable-list .drawer-variable-card:hover .var-insert-pill {
+  background: #8b5cf6;
+  border-color: #8b5cf6;
+  color: #ffffff;
+}
+
+.custom-vars-label {
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: #6b7280;
+  padding: 0.85rem 0.15rem 0.15rem;
+}
+
+/* ==========================================================================
+   CUSTOM VARIABLES — remove control + add form
+   ========================================================================== */
+.custom-variable-list {
+  display: contents;
+}
+
+.var-remove-btn {
+  position: static;
+  width: 26px;
+  height: 26px;
+  margin-left: 0.35rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 7px;
+  border: 1px solid transparent;
+  font-size: 0.78rem;
+  line-height: 1;
+  color: #9aa3af;
+  background: rgba(255, 255, 255, 0.04);
+  opacity: 1;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.var-remove-btn:hover {
+  background: rgba(239, 68, 68, 0.16);
+  border-color: rgba(239, 68, 68, 0.4);
+  color: #ef4444;
+}
+
+/* Add form — labelled, with real fields and a solid button */
+.add-variable-row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border: none;
+  border-top: 1px solid #262a31;
+  background: none;
+  flex-shrink: 0;
+}
+
+.add-variable-title {
+  display: block;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #e2e8f0;
+}
+
+.add-variable-fields {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.add-variable-input {
+  flex: 1 1 150px;
+  min-width: 0;
+  padding: 0.6rem 0.8rem;
+  border: 1px solid #2f343c;
+  border-radius: 9px;
+  background: #1d2027;
+  color: #f1f5f9;
+  font-family: var(--font-sans);
+  font-size: 0.82rem;
+  outline: none;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.add-variable-input::placeholder {
+  color: #6b7280;
+}
+
+.add-variable-input:focus {
+  border-color: #8b5cf6;
+  box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.15);
+}
+
+.btn-add-variable {
+  flex: 0 0 auto;
+  padding: 0.6rem 1.1rem;
+  border: none;
+  border-radius: 9px;
+  background: #8b5cf6;
+  color: #ffffff;
+  font-family: var(--font-sans);
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.15s ease;
+  white-space: nowrap;
+}
+
+.btn-add-variable:hover {
+  background: #7c3aed;
+}
+
+.add-variable-hint {
+  font-size: 0.73rem;
+  color: #6b7280;
 }

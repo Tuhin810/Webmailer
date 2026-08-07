@@ -121,8 +121,7 @@
             </div>
 
             <input type="text" id="from-name-input" class="from-name-input" placeholder="Sender Name"
-              title="Sender Name shown to recipients in their inbox"
-              style="height: 40px; padding: 10px 16px; border: 1px solid #f3f3f3cf; border-radius: 22px; font-size: 0.88rem; background: #edededa6; color: #111827; min-width: 220px; outline: none; transition: border-color 0.2s ease;" />
+              title="Sender Name shown to recipients in their inbox" />
           </div>
         </div>
 
@@ -165,7 +164,12 @@
         <!-- SUBJECT ROW (Full-width soft grey strip) -->
         <div class="field-row subject-row">
           <span class="field-label">Subject</span>
-          <input id="subject-input" type="text" class="subject-field" placeholder="Type here..." required />
+          <div class="subject-field-wrap">
+            <!-- Mirrors the input text behind it so {variables} can be highlighted in place -->
+            <div class="subject-highlight-backdrop" aria-hidden="true"><span id="subject-highlights"></span></div>
+            <input id="subject-input" type="text" class="subject-field" placeholder="Type here..." required
+              autocomplete="off" spellcheck="false" />
+          </div>
         </div>
 
         <!-- MESSAGE BODY AREA WITH VISUAL PREVIEW & HTML SIDE DRAWER -->
@@ -213,48 +217,6 @@
           </div>
         </div>
 
-        <!-- ATTACHMENTS SECTION -->
-        <div class="attachments-section">
-          <div class="section-title-row">
-            <span class="section-title">Attachments</span>
-            <span class="section-subtitle">Upload a file or convert pasted HTML</span>
-          </div>
-          <div id="attachments-container" class="attachments-container">
-            <div class="attachment-options-grid" id="attachment-options-grid">
-              <!-- Option 1: File Upload Box -->
-              <label class="attachment-upload-box" id="attachment-dropzone"
-                title="Click or drag & drop a PDF, image, or document file">
-                <input id="attachment-file-input" type="file"
-                  accept="application/pdf,image/*,.pdf,.png,.jpg,.jpeg,.gif,.webp,.docx,.doc" hidden />
-                <div class="upload-box-icon">
-                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-                    <polyline points="17 8 12 3 7 8"></polyline>
-                    <line x1="12" y1="3" x2="12" y2="15"></line>
-                  </svg>
-                </div>
-                <div class="upload-box-text">
-                  <span class="upload-main-text">Upload File</span>
-                </div>
-              </label>
-
-              <!-- Option 2: Convert HTML to Attachment Box -->
-              <button type="button" class="attachment-html-convert-box" id="open-html-attachment-btn"
-                onclick="openHtmlAttachmentDrawer()" title="Paste HTML and convert to PDF, Image, or DOCX attachment">
-                <div class="upload-box-icon html-convert-icon">
-                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <polyline points="16 18 22 12 16 6"></polyline>
-                    <polyline points="8 6 2 12 8 18"></polyline>
-                  </svg>
-                </div>
-                <div class="upload-box-text">
-                  <span class="upload-main-text">Paste HTML & Convert</span>
-                </div>
-              </button>
-            </div>
-          </div>
-        </div>
-
         <!-- BOTTOM TOOLBAR & ACTION FOOTER -->
         <footer class="composer-footer">
           <div class="formatting-toolbar">
@@ -271,12 +233,12 @@
               </button>
             </div>
 
-            <!-- HTML TEMPLATE DRAWER TRIGGER BUTTON -->
+            <!-- ATTACHMENT DRAWER TRIGGER BUTTON -->
             <div class="variable-picker-wrapper">
-              <button type="button" class="variable-trigger-btn template-trigger-btn" id="template-trigger-btn"
-                onclick="openTemplateDrawer()" title="Choose pre-designed HTML template">
-                <span class="var-symbol">🎨</span>
-                <span class="var-trigger-text">HTML Templates</span>
+              <button type="button" class="variable-trigger-btn attachment-trigger-btn" id="attachment-trigger-btn"
+                onclick="openAttachmentDrawer()" title="Add an attachment (upload a file or convert HTML)">
+                <span class="var-symbol">📎</span>
+                <span class="var-trigger-text" id="attachment-trigger-text">Attachment</span>
                 <svg class="chevron-icon" width="12" height="12" viewBox="0 0 12 12" fill="none">
                   <path d="M2.5 4.5L6 8L9.5 4.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"
                     stroke-linejoin="round" />
@@ -287,14 +249,9 @@
 
           <!-- RIGHT ACTION BUTTONS -->
           <div class="action-buttons-group">
-            <label class="broadcast-toggle-wrapper"
-              title="Toggle Broadcast mode (ON: Send live emails, OFF: Dry Run test)">
-              <input type="checkbox" id="broadcast-checkbox" checked />
-              <span class="toggle-slider"></span>
-              <span class="broadcast-text">Broadcast</span>
-              <span class="info-icon"
-                title="Broadcast mode sends real emails to recipients. Toggle OFF for dry run.">ⓘ</span>
-            </label>
+            <!-- Broadcast toggle removed from the UI; sending stays in broadcast mode.
+                 Test vs Live is controlled by the top mode banner. -->
+            <input type="checkbox" id="broadcast-checkbox" checked hidden />
 
             <button type="button" class="btn-discard" id="discard-btn">Discard</button>
             <button type="button" class="btn-stop-send hidden" id="stop-button"
@@ -323,6 +280,12 @@
 
           <button type="button" id="clear-terminal-btn" class="terminal-mini-btn"
             title="Clear terminal output">Clear</button>
+          <button type="button" id="composer-theme-toggle"
+            class="terminal-mini-btn terminal-icon-btn composer-theme-toggle" aria-label="Toggle colour theme"
+            title="Toggle light / dark mode">
+            <span id="composer-theme-icon" aria-hidden="true"></span>
+            <span id="composer-theme-label" class="sr-only-label">Dark</span>
+          </button>
           <a href="/setup.html" id="setup-link-btn" class="terminal-mini-btn terminal-icon-btn"
             title="Open setup — change Google OAuth credentials">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
@@ -372,31 +335,96 @@
       <div class="drawer-handle-bar"></div>
       <div class="drawer-header">
         <div class="drawer-title-group">
-          <span class="drawer-icon">{•}</span>
           <h3>Add Variable</h3>
         </div>
         <button type="button" id="close-drawer-btn" class="drawer-close-btn" onclick="closeVariableDrawer()"
           title="Close drawer">✕</button>
       </div>
-      <p class="drawer-subtitle">Select a variable below to insert it into your email template:</p>
-      <div class="drawer-variable-list">
+
+      <div class="drawer-variable-list" id="variable-list">
         <button type="button" class="drawer-variable-card variable-chip-btn" data-variable="name">
-          <div class="var-badge-icon">{•}</div>
           <div class="var-card-details">
             <span class="var-card-name">name</span>
-            <span class="var-card-desc">Inserts recipient's name from CSV</span>
+            <span class="var-card-desc">Recipient's name from your CSV</span>
           </div>
-          <span class="var-insert-pill">Insert {name}</span>
+          <span class="var-insert-pill">Insert</span>
         </button>
 
         <button type="button" class="drawer-variable-card variable-chip-btn" data-variable="email">
-          <div class="var-badge-icon">{•}</div>
           <div class="var-card-details">
             <span class="var-card-name">email</span>
-            <span class="var-card-desc">Inserts recipient's email address</span>
+            <span class="var-card-desc">Recipient's email address</span>
           </div>
-          <span class="var-insert-pill">Insert {email}</span>
+          <span class="var-insert-pill">Insert</span>
         </button>
+
+        <!-- User-defined variables render here -->
+        <div id="custom-variable-list" class="custom-variable-list"></div>
+      </div>
+
+      <!-- ADD A NEW VARIABLE -->
+      <div class="add-variable-row">
+        <span class="add-variable-title">Add your own variable</span>
+        <div class="add-variable-fields">
+          <input type="text" id="new-variable-name" class="add-variable-input" placeholder="name " autocomplete="off" />
+          <input type="text" id="new-variable-value" class="add-variable-input add-variable-desc" placeholder="value "
+            autocomplete="off" />
+          <button type="button" id="add-variable-btn" class="btn-add-variable">+ Add</button>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- SLIDE-UP ATTACHMENT DRAWER OVERLAY -->
+  <div id="attachment-drawer" class="drawer-overlay hidden" aria-hidden="true">
+    <div class="drawer-backdrop" id="attachment-drawer-backdrop" onclick="closeAttachmentDrawer()"></div>
+    <div class="drawer-content">
+      <div class="drawer-handle-bar"></div>
+      <div class="drawer-header">
+        <div class="drawer-title-group">
+          <span class="drawer-icon">📎</span>
+          <h3>Attachment</h3>
+        </div>
+        <button type="button" id="close-attachment-drawer-btn" class="drawer-close-btn"
+          onclick="closeAttachmentDrawer()" title="Close drawer">✕</button>
+      </div>
+      <p class="drawer-subtitle">Upload a file or convert pasted HTML into a PDF, image, or DOCX attachment:</p>
+      <div class="attachments-section drawer-attachments-section">
+        <div id="attachments-container" class="attachments-container">
+          <div class="attachment-options-grid" id="attachment-options-grid">
+            <!-- Option 1: File Upload Box -->
+            <label class="attachment-upload-box" id="attachment-dropzone"
+              title="Click or drag & drop a PDF, image, or document file">
+              <input id="attachment-file-input" type="file"
+                accept="application/pdf,image/*,.pdf,.png,.jpg,.jpeg,.gif,.webp,.docx,.doc" hidden />
+              <div class="upload-box-icon">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                  <polyline points="17 8 12 3 7 8"></polyline>
+                  <line x1="12" y1="3" x2="12" y2="15"></line>
+                </svg>
+              </div>
+              <div class="upload-box-text">
+                <span class="upload-main-text">Upload File</span>
+              </div>
+            </label>
+
+            <!-- Option 2: Convert HTML to Attachment Box -->
+            <button type="button" class="attachment-html-convert-box" id="open-html-attachment-btn"
+              onclick="openHtmlAttachmentDrawer()" title="Paste HTML and convert to PDF, Image, or DOCX attachment">
+              <div class="upload-box-icon html-convert-icon">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <polyline points="16 18 22 12 16 6"></polyline>
+                  <polyline points="8 6 2 12 8 18"></polyline>
+                </svg>
+              </div>
+              <div class="upload-box-text">
+                <span class="upload-main-text">Paste HTML & Convert</span>
+              </div>
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   </div>
@@ -743,6 +771,35 @@
       </div>
     </div>
   </div>
+
+  <script>
+    (function () {
+      var ICONS = {
+        dark: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>',
+        light: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>'
+      };
+      var btn = document.querySelector("#composer-theme-toggle");
+      var icon = document.querySelector("#composer-theme-icon");
+      var label = document.querySelector("#composer-theme-label");
+
+      function applyTheme(theme) {
+        document.documentElement.setAttribute("data-theme", theme);
+        if (icon) icon.innerHTML = ICONS[theme];
+        if (label) label.textContent = theme === "dark" ? "Dark" : "Light";
+        localStorage.setItem("mailer_theme", theme);
+      }
+
+      var saved = localStorage.getItem("mailer_theme")
+        || (window.matchMedia && window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark");
+      applyTheme(saved === "light" ? "light" : "dark");
+
+      if (btn) {
+        btn.addEventListener("click", function () {
+          applyTheme(document.documentElement.getAttribute("data-theme") === "dark" ? "light" : "dark");
+        });
+      }
+    })();
+  </script>
 
   <script src="app.js"></script>
 

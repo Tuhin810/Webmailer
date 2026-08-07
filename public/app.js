@@ -974,6 +974,7 @@ attachmentsContainer.addEventListener("drop", (e) => {
 });
 
 function renderEmptyDropzone() {
+  updateAttachmentTriggerLabel(null);
   attachmentsContainer.innerHTML = `
     <div class="attachment-options-grid" id="attachment-options-grid">
       <label class="attachment-upload-box" id="attachment-dropzone" title="Click or drag & drop a PDF, image, or document file">
@@ -1028,6 +1029,7 @@ function renderAttachmentCard(filename, formatOrIsImage = "pdf") {
     badgeMarkup = `<span class="attachment-format-badge format-badge-pdf">PDF</span>`;
   }
 
+  updateAttachmentTriggerLabel(filename);
   attachmentsContainer.innerHTML = `
     <div class="attachment-card">
       ${iconMarkup}
@@ -1048,6 +1050,158 @@ function renderAttachmentCard(filename, formatOrIsImage = "pdf") {
     log(`Attachment removed.`, "info");
     saveDraft();
   });
+}
+
+
+/* --------------------------------------------------------------------------
+   VARIABLE TOKEN HIGHLIGHTING
+   Any {variable} typed, pasted, or inserted into the visual editor is wrapped
+   in a non-editable pill so it reads as a distinct token instead of raw text.
+   The wrappers are invisible to the rest of the app: reads of
+   messageVisual.innerHTML are unwrapped, writes are re-decorated.
+   -------------------------------------------------------------------------- */
+const VAR_PATTERN = /\{([a-zA-Z0-9_.-]+)\}/g;
+const VAR_TEST = /\{[a-zA-Z0-9_.-]+\}/;
+const VAR_TOKEN_HTML = /<span class="var-token"[^>]*>([\s\S]*?)<\/span>/g;
+
+function stripVarTokens(html) {
+  return String(html).replace(VAR_TOKEN_HTML, "$1");
+}
+
+// Character offset of the caret within the editor's text content
+function getCaretOffset(root) {
+  const sel = window.getSelection();
+  if (!sel || sel.rangeCount === 0 || !root.contains(sel.anchorNode)) return null;
+  const range = sel.getRangeAt(0).cloneRange();
+  range.selectNodeContents(root);
+  range.setEnd(sel.getRangeAt(0).endContainer, sel.getRangeAt(0).endOffset);
+  return range.toString().length;
+}
+
+function setCaretOffset(root, offset) {
+  if (offset == null) return;
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, null);
+  let remaining = offset;
+  let node = walker.nextNode();
+  while (node) {
+    if (remaining <= node.textContent.length) {
+      const range = document.createRange();
+      range.setStart(node, remaining);
+      range.collapse(true);
+      const sel = window.getSelection();
+      sel.removeAllRanges();
+      sel.addRange(range);
+      return;
+    }
+    remaining -= node.textContent.length;
+    node = walker.nextNode();
+  }
+  // Fell past the end — park the caret at the very end
+  const range = document.createRange();
+  range.selectNodeContents(root);
+  range.collapse(false);
+  const sel = window.getSelection();
+  sel.removeAllRanges();
+  sel.addRange(range);
+}
+
+function makeVarToken(name) {
+  const span = document.createElement("span");
+  span.className = "var-token";
+  span.setAttribute("data-var", name);
+  span.setAttribute("contenteditable", "false");
+  span.textContent = `{${name}}`;
+  return span;
+}
+
+// Wraps every bare {variable} in text nodes under `root`
+function decorateVariables(root, preserveCaret = false) {
+  if (!root) return;
+  const caret = preserveCaret ? getCaretOffset(root) : null;
+
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
+    acceptNode(node) {
+      const parent = node.parentElement;
+      if (!parent) return NodeFilter.FILTER_REJECT;
+      if (parent.closest(".var-token")) return NodeFilter.FILTER_REJECT;
+      if (["SCRIPT", "STYLE"].includes(parent.tagName)) return NodeFilter.FILTER_REJECT;
+      return VAR_TEST.test(node.textContent)
+        ? NodeFilter.FILTER_ACCEPT
+        : NodeFilter.FILTER_REJECT;
+    }
+  });
+
+  const targets = [];
+  let node = walker.nextNode();
+  while (node) {
+    targets.push(node);
+    node = walker.nextNode();
+  }
+
+  targets.forEach((textNode) => {
+    const text = textNode.textContent;
+    const frag = document.createDocumentFragment();
+    let lastIndex = 0;
+    let match;
+    VAR_PATTERN.lastIndex = 0;
+    while ((match = VAR_PATTERN.exec(text)) !== null) {
+      if (match.index > lastIndex) {
+        frag.appendChild(document.createTextNode(text.slice(lastIndex, match.index)));
+      }
+      frag.appendChild(makeVarToken(match[1]));
+      lastIndex = match.index + match[0].length;
+    }
+    if (lastIndex < text.length) {
+      frag.appendChild(document.createTextNode(text.slice(lastIndex)));
+    }
+    textNode.parentNode.replaceChild(frag, textNode);
+  });
+
+  if (preserveCaret && targets.length) setCaretOffset(root, caret);
+}
+
+// Intercept innerHTML on the visual editor so tokens never leak into the
+// message body that gets saved, previewed, or sent.
+if (messageVisual) {
+  const nativeInnerHTML = Object.getOwnPropertyDescriptor(Element.prototype, "innerHTML");
+  Object.defineProperty(messageVisual, "innerHTML", {
+    configurable: true,
+    get() {
+      return stripVarTokens(nativeInnerHTML.get.call(this));
+    },
+    set(value) {
+      nativeInnerHTML.set.call(this, stripVarTokens(value));
+      decorateVariables(this);
+    }
+  });
+
+  messageVisual.addEventListener("input", () => decorateVariables(messageVisual, true));
+}
+
+// The subject is a plain input, so its {variables} are highlighted by a mirror
+// layer rendered directly behind the (transparent) input text.
+function renderSubjectVarChips() {
+  const layer = document.querySelector("#subject-highlights");
+  if (!layer || !subjectInput) return;
+  const value = subjectInput.value;
+  let html = "";
+  let lastIndex = 0;
+  let match;
+  VAR_PATTERN.lastIndex = 0;
+  while ((match = VAR_PATTERN.exec(value)) !== null) {
+    html += escapeHtml(value.slice(lastIndex, match.index));
+    html += `<span class="subject-var-token">${escapeHtml(match[0])}</span>`;
+    lastIndex = match.index + match[0].length;
+  }
+  html += escapeHtml(value.slice(lastIndex));
+  layer.innerHTML = html;
+  layer.parentElement.scrollLeft = subjectInput.scrollLeft;
+}
+
+if (subjectInput) {
+  ["input", "scroll", "keyup", "click"].forEach((evt) =>
+    subjectInput.addEventListener(evt, renderSubjectVarChips)
+  );
 }
 
 // 4. EDITOR MODES & RICH TEXT TOOLBAR
@@ -1255,6 +1409,43 @@ function applyTemplate(key) {
   saveDraft();
 }
 
+const attachmentDrawer = document.querySelector("#attachment-drawer");
+
+function openAttachmentDrawer() {
+  if (attachmentDrawer) {
+    attachmentDrawer.classList.remove("hidden");
+    attachmentDrawer.setAttribute("aria-hidden", "false");
+  }
+}
+
+function closeAttachmentDrawer() {
+  if (attachmentDrawer) {
+    attachmentDrawer.classList.add("hidden");
+    attachmentDrawer.setAttribute("aria-hidden", "true");
+  }
+}
+
+// Keeps the footer trigger label in sync with the current attachment
+function updateAttachmentTriggerLabel(filename) {
+  const label = document.querySelector("#attachment-trigger-text");
+  const btn = document.querySelector("#attachment-trigger-btn");
+  if (!label) return;
+  if (filename) {
+    const short = filename.length > 18 ? `${filename.slice(0, 15)}…` : filename;
+    label.textContent = short;
+    if (btn) {
+      btn.classList.add("has-attachment");
+      btn.title = `Attachment: ${filename}`;
+    }
+  } else {
+    label.textContent = "Attachment";
+    if (btn) {
+      btn.classList.remove("has-attachment");
+      btn.title = "Add an attachment (upload a file or convert HTML)";
+    }
+  }
+}
+
 const variableDrawer = document.querySelector("#variable-drawer");
 const drawerBackdrop = document.querySelector("#drawer-backdrop");
 const closeDrawerBtn = document.querySelector("#close-drawer-btn");
@@ -1283,44 +1474,176 @@ if (variableTriggerBtn) {
 if (closeDrawerBtn) closeDrawerBtn.addEventListener("click", closeVariableDrawer);
 if (drawerBackdrop) drawerBackdrop.addEventListener("click", closeVariableDrawer);
 
-document.querySelectorAll(".variable-chip-btn").forEach((btn) => {
-  btn.addEventListener("click", () => {
-    const varName = btn.getAttribute("data-variable");
-    if (!varName) return;
-    const tag = `{${varName}}`;
+function insertVariable(varName) {
+  if (!varName) return;
+  const tag = `{${varName}}`;
 
-    if (activeInput === messageVisual && editorMode === "normal") {
-      messageVisual.focus();
-      const sel = window.getSelection();
-      if (sel && sel.rangeCount > 0) {
-        const range = sel.getRangeAt(0);
-        range.deleteContents();
-        const textNode = document.createTextNode(tag);
-        range.insertNode(textNode);
-        range.setStartAfter(textNode);
-        range.setEndAfter(textNode);
-        sel.removeAllRanges();
-        sel.addRange(range);
-      } else {
-        messageVisual.appendChild(document.createTextNode(tag));
-      }
-      messageInput.value = messageVisual.innerHTML;
+  if (activeInput === messageVisual && editorMode === "normal") {
+    messageVisual.focus();
+    const sel = window.getSelection();
+    if (sel && sel.rangeCount > 0) {
+      const range = sel.getRangeAt(0);
+      range.deleteContents();
+      const textNode = makeVarToken(varName);
+      range.insertNode(textNode);
+      range.setStartAfter(textNode);
+      range.setEndAfter(textNode);
+      sel.removeAllRanges();
+      sel.addRange(range);
     } else {
-      const inputEl = activeInput || messageInput;
-      const start = inputEl.selectionStart || inputEl.value.length;
-      const end = inputEl.selectionEnd || inputEl.value.length;
-      const text = inputEl.value;
-      inputEl.value = text.substring(0, start) + tag + text.substring(end);
-      inputEl.focus();
-      inputEl.selectionStart = inputEl.selectionEnd = start + tag.length;
-      if (inputEl === messageInput) messageVisual.innerHTML = messageInput.value;
+      messageVisual.appendChild(makeVarToken(varName));
     }
+    messageInput.value = messageVisual.innerHTML;
+  } else {
+    const inputEl = activeInput || messageInput;
+    const start = inputEl.selectionStart || inputEl.value.length;
+    const end = inputEl.selectionEnd || inputEl.value.length;
+    const text = inputEl.value;
+    inputEl.value = text.substring(0, start) + tag + text.substring(end);
+    inputEl.focus();
+    inputEl.selectionStart = inputEl.selectionEnd = start + tag.length;
+    renderSubjectVarChips();
+    if (inputEl === messageInput) messageVisual.innerHTML = messageInput.value;
+  }
 
-    closeVariableDrawer();
-    log(`Inserted variable tag ${tag} into template.`, "info");
-    saveDraft();
+  closeVariableDrawer();
+  log(`Inserted variable tag ${tag} into template.`, "info");
+  saveDraft();
+}
+
+// Delegated so custom variables added at runtime work without rebinding
+const variableListEl = document.querySelector("#variable-list");
+if (variableListEl) {
+  variableListEl.addEventListener("click", (e) => {
+    const removeBtn = e.target.closest(".var-remove-btn");
+    if (removeBtn) {
+      e.stopPropagation();
+      removeCustomVariable(removeBtn.getAttribute("data-variable"));
+      return;
+    }
+    const card = e.target.closest(".variable-chip-btn");
+    if (card) insertVariable(card.getAttribute("data-variable"));
   });
-});
+}
+
+/* --------------------------------------------------------------------------
+   CUSTOM VARIABLES
+   User-defined tags stored locally. They resolve at send time from the matching
+   CSV column, exactly like {name} and {email} do.
+   -------------------------------------------------------------------------- */
+const CUSTOM_VARS_KEY = "mailer_custom_variables";
+
+function loadCustomVariables() {
+  try {
+    const raw = JSON.parse(localStorage.getItem(CUSTOM_VARS_KEY) || "[]");
+    return Array.isArray(raw) ? raw : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveCustomVariables(list) {
+  localStorage.setItem(CUSTOM_VARS_KEY, JSON.stringify(list));
+}
+
+function renderCustomVariables() {
+  const host = document.querySelector("#custom-variable-list");
+  if (!host) return;
+  const list = loadCustomVariables();
+  const label = list.length
+    ? '<span class="custom-vars-label">Your variables</span>'
+    : "";
+  host.innerHTML = label + list
+    .map((item) => {
+      const desc = item.value
+        ? `Always sends as “${item.value}”`
+        : `Uses the "${item.name}" column from your CSV`;
+      return `
+      <button type="button" class="drawer-variable-card variable-chip-btn" data-variable="${escapeHtml(item.name)}">
+        <div class="var-badge-icon">{•}</div>
+        <div class="var-card-details">
+          <span class="var-card-name">${escapeHtml(item.name)}</span>
+          <span class="var-card-desc">${escapeHtml(desc)}</span>
+        </div>
+        <span class="var-insert-pill">Insert</span>
+        <span class="var-remove-btn" data-variable="${escapeHtml(item.name)}" title="Remove this variable">✕</span>
+      </button>`;
+    })
+    .join("");
+}
+
+function addCustomVariable() {
+  const nameInput = document.querySelector("#new-variable-name");
+  const valueInput = document.querySelector("#new-variable-value");
+  if (!nameInput) return;
+
+  const name = nameInput.value.trim().replace(/^\{|\}$/g, "");
+  if (!name) return;
+  if (!/^[a-zA-Z0-9_.-]+$/.test(name)) {
+    log(`Variable name "${name}" is invalid — use letters, numbers, dot, dash or underscore only.`, "error");
+    return;
+  }
+
+  const reserved = ["name", "email"];
+  const list = loadCustomVariables();
+  if (reserved.includes(name.toLowerCase()) || list.some((v) => v.name.toLowerCase() === name.toLowerCase())) {
+    log(`Variable {${name}} already exists.`, "error");
+    return;
+  }
+
+  const value = valueInput ? valueInput.value.trim() : "";
+  list.push({ name, value });
+  saveCustomVariables(list);
+  renderCustomVariables();
+  nameInput.value = "";
+  if (valueInput) valueInput.value = "";
+  log(
+    value
+      ? `Added variable {${name}} = "${value}". It will be replaced with that value in every email.`
+      : `Added variable {${name}}. Make sure your CSV has a matching "${name}" column.`,
+    "sys"
+  );
+}
+
+// Fixed values defined in the drawer, applied to every recipient. A matching
+// CSV column on the recipient still wins, so per-recipient data beats a default.
+function customVariableValues() {
+  const values = {};
+  loadCustomVariables().forEach((item) => {
+    if (item.value) values[item.name] = item.value;
+  });
+  return values;
+}
+
+function withCustomVariables(recipient) {
+  const merged = { ...customVariableValues() };
+  Object.entries(recipient || {}).forEach(([key, val]) => {
+    if (val !== undefined && val !== null && val !== "") merged[key] = val;
+  });
+  return merged;
+}
+
+function removeCustomVariable(name) {
+  if (!name) return;
+  saveCustomVariables(loadCustomVariables().filter((v) => v.name !== name));
+  renderCustomVariables();
+  log(`Removed custom variable {${name}}.`, "info");
+}
+
+const addVariableBtn = document.querySelector("#add-variable-btn");
+if (addVariableBtn) addVariableBtn.addEventListener("click", addCustomVariable);
+
+const newVariableNameInput = document.querySelector("#new-variable-name");
+if (newVariableNameInput) {
+  newVariableNameInput.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      addCustomVariable();
+    }
+  });
+}
+
+renderCustomVariables();
 
 // Broadcast / Dry Run toggle listener
 broadcastCheckbox.addEventListener("change", (e) => {
@@ -1342,6 +1665,7 @@ clearTerminalBtn.addEventListener("click", () => {
 // Discard Form
 discardBtn.addEventListener("click", () => {
   subjectInput.value = "";
+  renderSubjectVarChips();
   messageInput.value = "";
   if (messageVisual) messageVisual.innerHTML = "";
   loadedRecipients = [];
@@ -1445,7 +1769,7 @@ form.addEventListener("submit", async (e) => {
 
     for (let i = 0; i < chunk.length; i++) {
       if (isSendingAborted) break;
-      const rec = chunk[i];
+      const rec = withCustomVariables(chunk[i]);
       const globalIdx = chunkIdx * CHUNK_SIZE + i;
       let recAttachment = null;
 
@@ -1831,6 +2155,7 @@ function insertTagIntoAttachmentHtml(tag) {
 }
 
 function openHtmlAttachmentDrawer() {
+  closeAttachmentDrawer();
   const drawer = document.querySelector("#html-attachment-drawer");
   const input = document.querySelector("#attachment-html-input");
   if (drawer) {
@@ -2055,6 +2380,8 @@ window.insertTagIntoCode = insertTagIntoCode;
 window.openTemplateDrawer = openTemplateDrawer;
 window.closeTemplateDrawer = closeTemplateDrawer;
 window.applyTemplate = applyTemplate;
+window.openAttachmentDrawer = openAttachmentDrawer;
+window.closeAttachmentDrawer = closeAttachmentDrawer;
 window.openVariableDrawer = openVariableDrawer;
 window.closeVariableDrawer = closeVariableDrawer;
 
@@ -2134,3 +2461,4 @@ const startInTest = savedMode !== "live"; // Defaults to Test Mode (Yellow)
 setTestModeState(startInTest, true);
 renderEmptyDropzone();
 restoreDraft();
+renderSubjectVarChips();
