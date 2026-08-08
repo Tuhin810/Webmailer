@@ -159,21 +159,73 @@ function extractInlineDataImages(html) {
   return { html: processedHtml, inlineImages };
 }
 
-function makeRawEmail({ from, to, subject, message, attachment }) {
+async function fetchAndEmbedRemoteImages(html) {
+  const inlineImages = [];
+  let count = 0;
+  const matches = [...html.matchAll(/src=["'](https?:\/\/[^"']+)["']/gi)];
+  let processedHtml = html;
+  for (const match of matches) {
+    const url = match[1];
+    try {
+      const res = await fetch(url);
+      if (!res.ok) continue;
+      const contentType = res.headers.get("content-type") || "image/jpeg";
+      if (!contentType.startsWith("image/")) continue;
+      const buf = Buffer.from(await res.arrayBuffer());
+      count++;
+      const cid = `inline-img-remote-${count}-${crypto.randomBytes(4).toString("hex")}`;
+      inlineImages.push({ cid, mimeType: contentType.split(";")[0].trim(), base64: buf.toString("base64") });
+      processedHtml = processedHtml.split(match[0]).join(`src="cid:${cid}"`);
+    } catch {
+      // leave the original remote src in place if the fetch fails
+    }
+  }
+  return { html: processedHtml, inlineImages };
+}
+
+// Plain-text fallback for the multipart/alternative part. HTML-only mail is a
+// strong spam signal, so every message carries a real text/plain sibling.
+function htmlToPlainText(html) {
+  return html
+    .replace(/<(script|style)[\s\S]*?<\/\1>/gi, "")
+    .replace(/<img[^>]*\balt=["']([^"']+)["'][^>]*>/gi, "$1")
+    .replace(/<img[^>]*>/gi, "")
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/<\/(p|div|tr|h[1-6]|li)>/gi, "\n")
+    .replace(/<li[^>]*>/gi, "- ")
+    .replace(/<a[^>]*\bhref=["']([^"']+)["'][^>]*>([\s\S]*?)<\/a>/gi, "$2 ($1)")
+    .replace(/<[^>]+>/g, "")
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&amp;/gi, "&")
+    .replace(/&lt;/gi, "<")
+    .replace(/&gt;/gi, ">")
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;/gi, "'")
+    .replace(/[ \t]+/g, " ")
+    .replace(/\n{3,}/g, "\n\n")
+    .split("\n").map((line) => line.trim()).join("\n")
+    .trim();
+}
+
+function makeRawEmail({ from, to, subject, message, attachment, presetInlineImages, unsubscribeAddress }) {
   const headers = [`From: ${safeHeader(from)}`, `To: ${safeHeader(to)}`, `Subject: ${safeHeader(subject)}`, "MIME-Version: 1.0"];
+  // Gmail's bulk-sender rules expect a machine-readable opt-out on promotional mail.
+  if (unsubscribeAddress) {
+    headers.push(`List-Unsubscribe: <mailto:${safeHeader(unsubscribeAddress)}?subject=unsubscribe>`);
+  }
   const formattedMessage = isHtmlBody(message) ? message : message.replace(/\r?\n/g, "<br>");
-  
-  const { html: htmlBody, inlineImages } = isHtmlBody(formattedMessage) ? extractInlineDataImages(formattedMessage) : { html: formattedMessage, inlineImages: [] };
+
+  const { html: htmlBody, inlineImages: dataInlineImages } = isHtmlBody(formattedMessage) ? extractInlineDataImages(formattedMessage) : { html: formattedMessage, inlineImages: [] };
+  const inlineImages = [...dataInlineImages, ...(presetInlineImages || [])];
 
   const hasAttachment = Boolean(attachment && attachment.base64 && String(attachment.base64).replace(/^data:[^;]+;base64,/, "").replace(/\s+/g, ""));
   const hasInline = inlineImages.length > 0;
 
-  if (!hasAttachment && !hasInline) {
-    return Buffer.from(`${headers.join("\r\n")}\r\nContent-Type: text/html; charset=UTF-8\r\nContent-Transfer-Encoding: 8bit\r\n\r\n${htmlBody}`, "utf8").toString("base64url");
-  }
-
+  const altBoundary = `alt-${crypto.randomBytes(12).toString("hex")}`;
   const relatedBoundary = `related-${crypto.randomBytes(12).toString("hex")}`;
   const mixedBoundary = `mixed-${crypto.randomBytes(12).toString("hex")}`;
+
+  const plainText = htmlToPlainText(htmlBody) || `View this message in an HTML-capable email client.`;
 
   function buildRelatedPart(boundary) {
     const parts = [
@@ -201,11 +253,34 @@ function makeRawEmail({ from, to, subject, message, attachment }) {
     return parts.join("\r\n");
   }
 
-  if (!hasAttachment && hasInline) {
-    const body = [
-      headers.join("\r\n"),
-      buildRelatedPart(relatedBoundary)
-    ].join("\r\n");
+  // text/plain first, richest part last, per RFC 2046 multipart/alternative.
+  function buildAlternativePart(boundary) {
+    const parts = [
+      `Content-Type: multipart/alternative; boundary="${boundary}"`,
+      "",
+      `--${boundary}`,
+      "Content-Type: text/plain; charset=UTF-8",
+      "Content-Transfer-Encoding: 8bit",
+      "",
+      plainText,
+      `--${boundary}`
+    ];
+    if (hasInline) {
+      parts.push(buildRelatedPart(relatedBoundary));
+    } else {
+      parts.push(
+        "Content-Type: text/html; charset=UTF-8",
+        "Content-Transfer-Encoding: 8bit",
+        "",
+        htmlBody
+      );
+    }
+    parts.push(`--${boundary}--`);
+    return parts.join("\r\n");
+  }
+
+  if (!hasAttachment) {
+    const body = [headers.join("\r\n"), buildAlternativePart(altBoundary)].join("\r\n");
     return Buffer.from(body, "utf8").toString("base64url");
   }
 
@@ -214,34 +289,12 @@ function makeRawEmail({ from, to, subject, message, attachment }) {
   const safeFilename = safeHeader(attachment.name || "attachment").replace(/"/g, "'");
   const attMime = safeHeader(attachment.mimeType || "application/octet-stream");
 
-  if (hasAttachment && !hasInline) {
-    const body = [
-      headers.join("\r\n"),
-      `Content-Type: multipart/mixed; boundary="${mixedBoundary}"`,
-      "",
-      `--${mixedBoundary}`,
-      "Content-Type: text/html; charset=UTF-8",
-      "Content-Transfer-Encoding: 8bit",
-      "",
-      htmlBody,
-      `--${mixedBoundary}`,
-      `Content-Type: ${attMime}; name="${safeFilename}"`,
-      "Content-Transfer-Encoding: base64",
-      `Content-Disposition: attachment; filename="${safeFilename}"`,
-      "",
-      attachmentData,
-      `--${mixedBoundary}--`,
-      ""
-    ].join("\r\n");
-    return Buffer.from(body, "utf8").toString("base64url");
-  }
-
   const body = [
     headers.join("\r\n"),
     `Content-Type: multipart/mixed; boundary="${mixedBoundary}"`,
     "",
     `--${mixedBoundary}`,
-    buildRelatedPart(relatedBoundary),
+    buildAlternativePart(altBoundary),
     `--${mixedBoundary}`,
     `Content-Type: ${attMime}; name="${safeFilename}"`,
     "Content-Transfer-Encoding: base64",
@@ -265,6 +318,9 @@ async function handleSend(request, response) {
   if (data.dryRun) return sendJson(response, 200, { dryRun: true, results: recipients.map((r) => ({ email: r.email, status: "dry-run-success" })) });
   const { token, session } = await accessToken(request);
   const fromHeader = rawFromName ? `"${safeHeader(rawFromName).replace(/"/g, "'")}" <${safeHeader(session.email)}>` : safeHeader(session.email);
+  const remoteEmbedResult = isHtmlBody(message) ? await fetchAndEmbedRemoteImages(message) : { html: message, inlineImages: [] };
+  const preEmbeddedMessage = remoteEmbedResult.html;
+  const remoteInlineImages = remoteEmbedResult.inlineImages;
   const results = [];
   const CONCURRENCY = 4;
 
@@ -282,7 +338,7 @@ async function handleSend(request, response) {
         }
         const recipientName = recipient.name ? personalize(recipient.name, recipient).trim() : "";
         const toHeader = recipientName ? `"${safeHeader(recipientName).replace(/"/g, "'")}" <${safeHeader(recipient.email)}>` : safeHeader(recipient.email);
-        const raw = makeRawEmail({ from: fromHeader, to: toHeader, subject: personalize(subject, recipient), message: personalize(message, recipient), attachment: recipientAttachment });
+        const raw = makeRawEmail({ from: fromHeader, to: toHeader, subject: personalize(subject, recipient), message: personalize(preEmbeddedMessage, recipient), attachment: recipientAttachment, presetInlineImages: remoteInlineImages, unsubscribeAddress: session.email });
         const sent = await fetch("https://gmail.googleapis.com/gmail/v1/users/me/messages/send", {
           method: "POST",
           headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
