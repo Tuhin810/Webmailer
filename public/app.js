@@ -1315,6 +1315,50 @@ function setEditorMode(mode) {
 if (modeNormalBtn) modeNormalBtn.addEventListener("click", () => setEditorMode("normal"));
 if (modeHtmlBtn) modeHtmlBtn.addEventListener("click", () => setEditorMode("html"));
 
+// Email images only ever render a few hundred pixels wide, so downscale before
+// embedding. Base64 adds ~33% on top of whatever we keep, and every recipient
+// pays that cost, so a full-size camera image is worth shrinking here.
+const INLINE_IMG_MAX_WIDTH = 600;
+
+function hasTransparency(canvas, ctx) {
+  const { width, height } = canvas;
+  const data = ctx.getImageData(0, 0, width, height).data;
+  for (let i = 3; i < data.length; i += 4) {
+    if (data[i] < 255) return true;
+  }
+  return false;
+}
+
+function downscaleImage(file) {
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const original = event.target.result;
+      const img = new Image();
+      img.onload = () => {
+        try {
+          const scale = Math.min(1, INLINE_IMG_MAX_WIDTH / img.naturalWidth);
+          const canvas = document.createElement("canvas");
+          canvas.width = Math.round(img.naturalWidth * scale);
+          canvas.height = Math.round(img.naturalHeight * scale);
+          const ctx = canvas.getContext("2d");
+          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+          // JPEG is far smaller, but flattens alpha — keep PNG when it matters.
+          const encoded = hasTransparency(canvas, ctx)
+            ? canvas.toDataURL("image/png")
+            : canvas.toDataURL("image/jpeg", 0.82);
+          resolve(encoded.length < original.length ? encoded : original);
+        } catch {
+          resolve(original); // tainted canvas, unsupported format, etc.
+        }
+      };
+      img.onerror = () => resolve(original);
+      img.src = original;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
 // Live sync between visual div and textarea
 if (messageVisual) {
   messageVisual.addEventListener("input", () => {
@@ -1333,15 +1377,13 @@ if (messageVisual) {
         const file = item.getAsFile();
         if (!file) continue;
 
-        const reader = new FileReader();
-        reader.onload = (event) => {
-          const base64Data = event.target.result;
+        downscaleImage(file).then((base64Data) => {
           document.execCommand("insertImage", false, base64Data);
           messageInput.value = messageVisual.innerHTML;
           saveDraft();
-          log(`Pasted image into composer (${(file.size / 1024).toFixed(1)} KB).`, "info");
-        };
-        reader.readAsDataURL(file);
+          const embeddedKb = (base64Data.length * 0.75) / 1024;
+          log(`Pasted image into composer (${(file.size / 1024).toFixed(1)} KB source, ${embeddedKb.toFixed(1)} KB embedded).`, "info");
+        });
         break;
       }
     }
@@ -1360,17 +1402,15 @@ if (inlineImgBtn && inlineImgPicker) {
     const file = e.target.files[0];
     if (!file) return;
 
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const base64Data = event.target.result;
+    downscaleImage(file).then((base64Data) => {
       messageVisual.focus();
       document.execCommand("insertImage", false, base64Data);
       messageInput.value = messageVisual.innerHTML;
       saveDraft();
-      log(`Inserted image "${file.name}" into composer.`, "info");
+      const embeddedKb = (base64Data.length * 0.75) / 1024;
+      log(`Inserted image "${file.name}" (${(file.size / 1024).toFixed(1)} KB source, ${embeddedKb.toFixed(1)} KB embedded).`, "info");
       inlineImgPicker.value = "";
-    };
-    reader.readAsDataURL(file);
+    });
   });
 }
 
@@ -1959,10 +1999,10 @@ form.addEventListener("submit", async (e) => {
 
     log(`✓ Chunk ${chunkIdx + 1}/${totalChunks} complete. (${globalSent} sent, ${globalFail} failed so far)`, "sys");
 
-    // If there are more chunks and not aborted, show cooldown modal for 5 min
+    // If there are more chunks and not aborted, show the cooldown modal
     if (chunkIdx < totalChunks - 1 && !isSendingAborted && !cooldownCancelled) {
-      log(`⏳ Cooling down for 3 minutes before chunk ${chunkIdx + 2}...`, "sys");
-      progressText.textContent = `Waiting 3 min before chunk ${chunkIdx + 2}/${totalChunks}...`;
+      log(`⏳ Cooling down for 30 seconds before chunk ${chunkIdx + 2}...`, "sys");
+      progressText.textContent = `Waiting 30s before chunk ${chunkIdx + 2}/${totalChunks}...`;
 
       const shouldContinue = await showCooldownModal(chunkIdx + 1, totalChunks, chunk.length, recipientChunks[chunkIdx + 1].length);
       if (!shouldContinue) {
@@ -2007,7 +2047,7 @@ function showCooldownModal(chunkDone, totalChunks, sentCount, nextCount) {
     if (sentCountEl) sentCountEl.textContent = sentCount;
     if (nextCountEl) nextCountEl.textContent = nextCount;
 
-    const COOLDOWN_SECS = 180; // 3 minutes
+    const COOLDOWN_SECS = 30;
     const circumference = 2 * Math.PI * 45; // r=45
     let remaining = COOLDOWN_SECS;
 
