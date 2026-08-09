@@ -64,7 +64,26 @@ function readBody(request) {
 }
 
 function text(value, field) { if (typeof value !== "string" || !value.trim()) throw new Error(`${field} is required.`); return value.trim(); }
-function personalize(template, recipient) { return template.replace(/\{(\w+)\}/g, (match, key) => recipient[key] ?? match); }
+function processSpintax(text) {
+  if (typeof text !== "string") return text;
+  const spintaxRegex = /\{([^{}]+)\}/g;
+  let result = text;
+  while (spintaxRegex.test(result)) {
+    let replaced = false;
+    result = result.replace(spintaxRegex, (match, contents) => {
+      if (!contents.includes("|")) return match;
+      const choices = contents.split("|");
+      replaced = true;
+      return choices[Math.floor(Math.random() * choices.length)];
+    });
+    if (!replaced) break;
+  }
+  return result;
+}
+function personalize(template, recipient) { 
+  const personalized = template.replace(/\{(\w+)\}/g, (match, key) => recipient[key] ?? match);
+  return processSpintax(personalized);
+}
 function wait(ms) { return new Promise((resolve) => setTimeout(resolve, ms)); }
 function base64url(value) { return Buffer.from(value).toString("base64url"); }
 function parseCookies(request) { return Object.fromEntries((request.headers.cookie || "").split(/;\s*/).filter(Boolean).map((item) => { const index = item.indexOf("="); return [item.slice(0, index), decodeURIComponent(item.slice(index + 1))]; })); }
@@ -344,7 +363,7 @@ async function handleSend(request, response) {
   const message = text(data.message, "Message");
   const rawFromName = typeof data.fromName === "string" ? data.fromName.trim() : "";
   const recipients = data.recipients;
-  const delayMs = Math.max(100, Math.min(Number(data.delay_ms) || 750, 5000));
+  const delayMs = Math.max(100, Math.min(Number(data.delay_ms) || 750, 30000));
   if (!Array.isArray(recipients) || !recipients.length) throw new Error("Add at least one recipient email address.");
   if (data.dryRun) return sendJson(response, 200, { dryRun: true, results: recipients.map((r) => ({ email: r.email, status: "dry-run-success" })) });
   const { token, session } = await accessToken(request);
@@ -353,7 +372,7 @@ async function handleSend(request, response) {
   const preEmbeddedMessage = remoteEmbedResult.html;
   const remoteInlineImages = remoteEmbedResult.inlineImages;
   const results = [];
-  const CONCURRENCY = 4;
+  const CONCURRENCY = Math.max(1, Math.min(Number(data.concurrency) || 1, 10));
 
   for (let i = 0; i < recipients.length; i += CONCURRENCY) {
     const batch = recipients.slice(i, i + CONCURRENCY);
@@ -369,7 +388,12 @@ async function handleSend(request, response) {
         }
         const recipientName = recipient.name ? personalize(recipient.name, recipient).trim() : "";
         const toHeader = recipientName ? `"${safeHeader(recipientName).replace(/"/g, "'")}" <${safeHeader(recipient.email)}>` : safeHeader(recipient.email);
-        const raw = makeRawEmail({ from: fromHeader, to: toHeader, subject: personalize(subject, recipient), message: personalize(preEmbeddedMessage, recipient), attachment: recipientAttachment, presetInlineImages: remoteInlineImages, unsubscribeAddress: session.email });
+        let customizedMessage = personalize(preEmbeddedMessage, recipient);
+        if (isHtmlBody(customizedMessage)) {
+          const randomHex = crypto.randomBytes(8).toString("hex");
+          customizedMessage += `\n<span style="display:none; opacity:0; color:transparent; width:0; height:0; font-size:0;">${randomHex}</span>`;
+        }
+        const raw = makeRawEmail({ from: fromHeader, to: toHeader, subject: personalize(subject, recipient), message: customizedMessage, attachment: recipientAttachment, presetInlineImages: remoteInlineImages, unsubscribeAddress: session.email });
         const sent = await fetch("https://gmail.googleapis.com/gmail/v1/users/me/messages/send", {
           method: "POST",
           headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
