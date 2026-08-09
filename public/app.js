@@ -1873,6 +1873,28 @@ form.addEventListener("submit", async (e) => {
   let globalSent = 0;
   let globalFail = 0;
 
+  // One request goes out per recipient, so upload a shared attachment a single
+  // time and pass its id instead of re-sending the payload for every address.
+  // Per-recipient template attachments are generated individually and skipped.
+  let stagedAttachmentId = null;
+  const sharedAttachment = (currentAttachment && !currentAttachment.isHtmlTemplate) ? currentAttachment : null;
+  if (sharedAttachment && isBroadcast) {
+    try {
+      const stageRes = await fetch("/api/attachment", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ base64: sharedAttachment.base64, name: sharedAttachment.name, mimeType: sharedAttachment.mimeType })
+      });
+      const stageData = await stageRes.json();
+      if (!stageRes.ok) throw new Error(stageData.error || "Upload failed.");
+      stagedAttachmentId = stageData.id;
+      const sizeKb = (sharedAttachment.base64.length * 0.75) / 1024;
+      log(`Staged attachment "${sharedAttachment.name}" (${sizeKb.toFixed(0)} KB) — uploaded once for all recipients.`, "info");
+    } catch (err) {
+      log(`Could not stage attachment (${err.message}). Falling back to per-recipient upload.`, "warning");
+    }
+  }
+
   for (let chunkIdx = 0; chunkIdx < totalChunks; chunkIdx++) {
     if (isSendingAborted || cooldownCancelled) break;
 
@@ -1944,7 +1966,8 @@ form.addEventListener("submit", async (e) => {
           subject,
           message,
           fromName: fromNameInput ? fromNameInput.value.trim() : "",
-          attachment: (currentAttachment && !currentAttachment.isHtmlTemplate) ? currentAttachment : null,
+          attachment: stagedAttachmentId ? null : sharedAttachment,
+          attachmentId: stagedAttachmentId,
           dryRun: !isBroadcast
         };
 

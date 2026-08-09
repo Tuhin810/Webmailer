@@ -307,8 +307,39 @@ function makeRawEmail({ from, to, subject, message, attachment, presetInlineImag
   return Buffer.from(body, "utf8").toString("base64url");
 }
 
+// The client sends one request per recipient, so an attachment would otherwise
+// be re-uploaded for every address. Stage it once and reference it by id.
+const attachmentCache = new Map();
+const ATTACHMENT_TTL_MS = 60 * 60 * 1000;
+
+function pruneAttachmentCache() {
+  const now = Date.now();
+  for (const [id, entry] of attachmentCache) {
+    if (now - entry.storedAt > ATTACHMENT_TTL_MS) attachmentCache.delete(id);
+  }
+}
+
+async function handleAttachmentUpload(request, response) {
+  await accessToken(request); // staging is only for signed-in senders
+  const data = await readBody(request);
+  if (!data.base64) throw new Error("No attachment data provided.");
+  pruneAttachmentCache();
+  const id = crypto.randomBytes(16).toString("hex");
+  attachmentCache.set(id, {
+    storedAt: Date.now(),
+    attachment: { base64: data.base64, name: data.name, mimeType: data.mimeType }
+  });
+  return sendJson(response, 200, { id });
+}
+
 async function handleSend(request, response) {
   const data = await readBody(request);
+  if (data.attachmentId) {
+    const staged = attachmentCache.get(data.attachmentId);
+    if (!staged) throw new Error("Staged attachment expired. Re-attach the file and try again.");
+    staged.storedAt = Date.now(); // keep alive for the duration of a long send
+    data.attachment = staged.attachment;
+  }
   const subject = text(data.subject, "Subject");
   const message = text(data.message, "Message");
   const rawFromName = typeof data.fromName === "string" ? data.fromName.trim() : "";
@@ -429,6 +460,7 @@ http.createServer(async (request, response) => {
       response.setHeader("Set-Cookie", clearCookie(SESSION_COOKIE));
       return sendJson(response, 200, { ok: true });
     }
+    if (pathname === "/api/attachment") return request.method === "POST" ? await handleAttachmentUpload(request, response) : sendJson(response, 405, { error: "Method not allowed" });
     if (pathname === "/api/send") return request.method === "POST" ? await handleSend(request, response) : sendJson(response, 405, { error: "Method not allowed" });
     if (request.method === "GET") return await serveFile(response, pathname);
     sendJson(response, 405, { error: "Method not allowed" });
